@@ -413,7 +413,7 @@ function install_attributeList() {
 
     attributeList = blessed.list({
         parent: area1,
-        label: ' {bold}{cyan-fg}Attribute List{/cyan-fg}{/bold}',
+        label: ' {bold}{cyan-fg}Attribute List{/cyan-fg}{/bold} ',
         top: 0,
         tags: true,
         left: w2 + "+1",
@@ -511,7 +511,7 @@ function install_address_space_explorer() {
         tags: true,
         fg: 'green',
         //Xx keys: true,
-        label: ' {bold}{cyan-fg}Address Space{/cyan-fg}{/bold}',
+        label: ' {bold}{cyan-fg}Address Space{/cyan-fg}{/bold} ',
         top: 'top',
         left: 'left',
         width: '40%',
@@ -573,7 +573,7 @@ function install_monitoredItemsWindow() {
             width: '60%-1',
             height: '50%',
             keys: true,
-            label: 'Monitored Items',
+            label: ' Monitored Items ',
             border: 'line',
             scrollbar: scrollbar,
             noCellBorders: true,
@@ -626,7 +626,7 @@ function install_logWindow() {
 
         parent: area2,
         tags: true,
-        label: ' {bold}{cyan-fg}Info{/cyan-fg}{/bold}',
+        label: ' {bold}{cyan-fg}Info{/cyan-fg}{/bold} ',
         top: 'top',
         left: 'left',
         width: '100%',
@@ -643,17 +643,7 @@ function install_logWindow() {
                 inverse: true
             }
         },
-        style: {
-            item: {
-                hover: {
-                    bg: 'blue'
-                }
-            },
-            selected: {
-                bg: 'blue',
-                bold: true
-            }
-        }
+        style: _.clone(style)
     });
 
     var lines;
