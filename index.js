@@ -80,7 +80,7 @@ if (!endpointUrl) {
 
 
 const certificateFile = path.join(__dirname,"certificates","client_cert_2048.pem");
-const privateKeyFile  = path.join(__dirname,"certificates","PKI/own/private/private_key.pem" );
+const privateKeyFile  = path.join(__dirname,"certificates","client_key_2048.pem" );
 const options = {
     securityMode: securityMode,
     securityPolicy: securityPolicy,
