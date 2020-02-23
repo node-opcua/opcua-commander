@@ -20,7 +20,7 @@ import {
     VariantArrayType,
     BrowseDirection
 } from "node-opcua-client";
-import * as chalk from "chalk";
+import chalk from "chalk";
 import * as path from "path";
 import { w } from "../utils/utils";
 import { EventEmitter } from "events";

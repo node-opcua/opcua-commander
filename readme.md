@@ -9,7 +9,7 @@ https://raw.githubusercontent.com/node-opcua/opcua-commander/master/docs/demo.gi
 
 ### install from npm
 
-    $ npm install  opcua-commander -g
+    $ npm install opcua-commander -g
     $ opcua-commander -e opc.tcp://localhost:26543 
         
 
@@ -19,7 +19,7 @@ https://raw.githubusercontent.com/node-opcua/opcua-commander/master/docs/demo.gi
     $ git clone https://github.com/node-opcua/opcua-commander.git
     $ cd opcua-commander
     $ npm install
-    $ node index.js  -e opc.tcp://localhost:26543 
+    $ node dist/index.js -e opc.tcp://localhost:26543 
     
     
     
@@ -29,4 +29,15 @@ if you have EACCES error on linux,
 
      $ npm install -g opcua-commander --unsafe-perm=true --allow-root
      $ sudo npm install -g opcua-commander --unsafe-perm=true --allow-root
+
+
+### run with docker
+
+build your docker image
+
+    $ docker build . -t commander
+    
+Run the docker image
+
+    $ docker run -it commander bin/opcua-commander -e opc.tcp://localhost:26543     
      

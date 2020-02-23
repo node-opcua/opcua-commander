@@ -2,7 +2,7 @@
 
 import * as _ from "underscore";
 import { assert } from "node-opcua-client"
-import * as chalk from "chalk";
+import chalk from "chalk";
 import { Widgets } from "blessed";
 
 const blessed = require("blessed");

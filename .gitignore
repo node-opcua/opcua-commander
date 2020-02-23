@@ -2,6 +2,7 @@ node_modules
 index2.js
 certificates
 .idea
+/*.iml
 .vscode/
 pki/
 build/

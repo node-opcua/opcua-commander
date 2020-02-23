@@ -1,6 +1,6 @@
 /* eslint no-console: off , no-process-exit: off*/
 import * as  _ from "underscore";
-import * as chalk from "chalk";
+import chalk from "chalk";
 import { Model, makeUserIdentity } from "./model/model";
 import { View } from "./view/view";
 import { MessageSecurityMode, SecurityPolicy } from "node-opcua-client";

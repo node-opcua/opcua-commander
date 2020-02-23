@@ -1,7 +1,7 @@
 import * as blessed from "blessed";
 import * as _ from "underscore";
 import { format, callbackify } from "util";
-import * as chalk from "chalk";
+import chalk from "chalk";
 
 import { TreeItem } from "../widget/tree_item";
 import { ClientAlarmList, resolveNodeId, DataValue, ResultMask } from "node-opcua-client";

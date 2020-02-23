@@ -12,7 +12,8 @@
     "blessed"
   ],
   "scripts": {
-    "postinstall": "npm dedupe && node create_certificate.js certificate -s -o certificates/client_certificate.pem",
+    "postinstall": "npm dedupe && npm run build && node create_certificate.js certificate -s -o certificates/client_certificate.pem",
+    "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Etienne Rossignon",
@@ -44,5 +45,8 @@
     "underscore": "^1.9.1",
     "update-notifier": "^3.0.1",
     "yargs": "^14.2.0"
+  },
+  "devDependencies": {
+    "typescript": "^3.8.2"
   }
 }
