@@ -1,6 +1,6 @@
 {
   "name": "opcua-commander",
-  "version": "0.7.1",
+  "version": "0.8.1",
   "description": "OPCUA CLI client",
   "main": "index.js",
   "keywords": [
@@ -13,7 +13,7 @@
   ],
   "scripts": {
     "postinstall": "npm dedupe && npm run build && node create_certificate.js certificate -s -o certificates/client_certificate.pem",
-    "build": "tsc",
+    "build": "tsc -b",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Etienne Rossignon",
@@ -33,19 +33,17 @@
     "url": "https://github.com/node-opcua/opcua-commander/issues"
   },
   "dependencies": {
-    "@types/blessed": "^0.1.12",
-    "async": "^3.1.0",
+    "@types/blessed": "^0.1.17",
+    "async": "^3.2.0",
     "blessed": "^0.1.81",
-    "blessed-contrib": "^4.8.18",
+    "blessed-contrib": "^4.8.19",
     "chalk": "^3.0.0",
-    "cli-truncate": "^2.0.0",
-    "node-opcua-client": "^2.3.0",
-    "node-opcua-pki": "^1.5.4",
-    "npm-check-updates": "^3.2.1",
-    "underscore": "^1.9.1",
-    "update-notifier": "^3.0.1",
-    "yargs": "^14.2.0"
-  },
+    "cli-truncate": "^2.1.0",
+    "node-opcua-client": "^2.5.4",
+    "node-opcua-pki": "^1.5.5",
+    "underscore": "^1.9.2",
+    "update-notifier": "^4.1.0",
+    "yargs": "^15.3.1"
   "devDependencies": {
     "typescript": "^3.8.2"
   }
