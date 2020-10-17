@@ -18,7 +18,8 @@ import {
     DataTypeIds,
     DataValue,
     VariantArrayType,
-    BrowseDirection
+    BrowseDirection,
+    Variant
 } from "node-opcua-client";
 import chalk from "chalk";
 import * as path from "path";
@@ -225,6 +226,56 @@ export class Model extends EventEmitter {
             await session.close();
         }
         await this.client!.disconnect();
+    }
+
+    public request_write_item(treeItem: any) {
+        if (!this.subscription) return;
+        const node = treeItem.node;
+        return treeItem;
+    }
+
+    private getAttributeValue(attributes: any[], attribute: number) {
+        return attributes.find(a => a.attribute == attributeIdtoString[attribute])
+    }
+    public async writeNode(node: any, data: any) {
+        const attributes = await this.readNodeAttributes(node);
+        const dataType = this.getAttributeValue(attributes, AttributeIds.DataType);
+        const arrayDimension = this.getAttributeValue(attributes, AttributeIds.ArrayDimensions);
+        if (dataType) {
+            const dataToWrite = new Variant()
+            dataToWrite.dataType = dataType.text.split(" ")[0];
+            dataToWrite.value = data;
+            dataToWrite.arrayType = arrayDimension.text > 0 ?  VariantArrayType.Array : VariantArrayType.Scalar;
+            let risultato = await this.session.writeSingleNode(node.nodeId, dataToWrite);
+            return risultato;
+        }
+
+        return false;
+    }
+
+    public async readNode(node: any) {
+        return await this.session.read(node);
+
+    }
+    public async readNodeValue(node: any) {
+        if (!this.session) {
+            return null;
+        }
+        
+        const dataValues = await this.readNode(node);
+        if (dataValues.statusCode == StatusCodes.Good) {
+            if (dataValues.value.value) {
+                switch (dataValues.value.arrayType) {
+                    case VariantArrayType.Scalar:
+                        return "" + dataValues.value.value;
+                    case VariantArrayType.Array:
+                        return dataValues.value.value.join(",");
+                    default:
+                        return "";
+                }
+            }
+        }
+        return null;
     }
 
     public monitor_item(treeItem: any) {

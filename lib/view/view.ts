@@ -4,7 +4,7 @@ import { format, callbackify } from "util";
 import chalk from "chalk";
 
 import { TreeItem } from "../widget/tree_item";
-import { ClientAlarmList, resolveNodeId, DataValue, ResultMask } from "node-opcua-client";
+import { ClientAlarmList, resolveNodeId, DataValue, ResultMask, VariantArrayType } from "node-opcua-client";
 
 import { Tree } from "../widget/widget_tree";
 import { Model } from "../model/model";
@@ -68,6 +68,8 @@ export class View {
     public attributeList: blessed.Widgets.ListElement;
     public logWindow: blessed.Widgets.ListElement;
     public tree: Tree;
+    public writeForm: blessed.Widgets.BoxElement;
+    public valuesToWriteElement: blessed.Widgets.TextboxElement;
 
 
     public model: Model;
@@ -104,11 +106,162 @@ export class View {
 
         this.attributeList = this.install_attributeList();
         this.install_monitoredItemsWindow();
+        this.install_writeFormWindow();
         this.logWindow = this.install_logWindow();
         this.menuBar = this.install_mainMenu();
         this.tree = this.install_address_space_explorer();
         // Render the screen.
         this.screen.render();
+    }
+
+    install_writeFormWindow() {
+        this.writeForm = blessed.box({
+            parent: this.area1,
+            tags: true,
+            top: "50%",
+            left: w2 + "+1",
+            width: "60%-1",
+            height: "50%",
+            keys: true,
+            mouse: true,
+            label: " Write item ",
+            border: "line",
+            scrollbar: scrollbar,
+            noCellBorders: true,
+            style: _.clone(style),
+            align: "left",
+            hidden: true
+        });
+
+        {
+            const form = blessed.form({
+                parent: this.writeForm,
+                width: "100%-2",
+                height: "100%-2",
+                top: 1,
+                left: 1,
+                keys: true
+            });
+
+            blessed.text({
+                parent: form,
+                top: 0,
+                left: 0,
+                content: 'VALUES (Comma separated for array):'
+            });
+
+            this.valuesToWriteElement = blessed.textbox({
+                parent: form,
+                name: 'valuesToWrite',
+                top: 1,
+                left: 0,
+                height: "100%-2",
+                inputOnFocus: true,
+                mouse: false,
+                vi: false,
+                keys: false,
+                content: '',
+                border: {
+                    type: 'line'
+                },
+                focus: {
+                    fg: 'blue'
+                }
+            });
+
+            const padding = {
+                top: 0,
+                right: 2,
+                bottom: 0,
+                left: 2
+            };
+            const buttonTop = "100%-1";
+            var submit = blessed.button({
+                parent: form,
+                name: 'submit',
+                content: 'Submit',
+                top: buttonTop,
+                left: 0,
+                shrink: true,
+                mouse: true,
+                padding,
+                style: {
+                    bold: true,
+                    fg: 'white',
+                    bg: 'green',
+                    focus: {
+                        inverse: true
+                    }
+                }
+            });
+            submit.on('press', function () {
+                form.submit();
+            });
+
+
+            var closeForm = blessed.button({
+                parent: form,
+                name: 'close',
+                content: 'close',
+                top: buttonTop,
+                right: 0,
+                shrink: true,
+                mouse: true,
+                padding,
+                style: {
+                    bold: true,
+                    fg: 'white',
+                    bg: 'red',
+                    focus: {
+                        inverse: true
+                    }
+                }
+            });
+            closeForm.on('press', () => {
+                this.writeForm.hide();
+                this.screen.render();
+            });
+
+
+
+            const writeResultMsg = blessed.text({
+                parent: form,
+                top: submit.top,
+                left: "center",
+                content: ''
+            });
+
+
+            form.on('submit',async (data: any) => {
+                const treeItem = this.tree.getSelectedItem();
+                if (treeItem.node) {
+                    // check if it is an array
+                    const dataValues = await this.model.readNode(treeItem.node);
+                    let valuesToWrite = data.valuesToWrite;
+
+                    if (dataValues && dataValues.value) {                        
+                        if (dataValues.value.arrayType == VariantArrayType.Array) {
+                            // since it is an array I will split by comma
+                            valuesToWrite = valuesToWrite.split(",");
+                        }
+                    }
+
+                    // send data to opc
+                    const res = await this.model.writeNode(treeItem.node, valuesToWrite);
+                    console.log(res);
+                    if (res.valueOf() == 0) {
+                        writeResultMsg.setContent("Write successfull");
+                    } else {
+                        writeResultMsg.setContent("Write error");
+                    }
+                    this.screen.render();
+                }
+
+            });
+        }
+
+
+        this.area1.append(this.writeForm);
     }
 
     install_monitoredItemsWindow() {
@@ -225,6 +378,11 @@ export class View {
                 //xx prefix: "M",
                 keys: ["m"],
                 callback: () => this._onMonitioredSelectedItem()
+            },
+            "Write":
+            {
+                keys: ["w"],
+                callback: () => this._onWriteSelectedItem()
             },
             "Exit": {
                 keys: ["q"], //["C-c", "escape"],
@@ -469,6 +627,25 @@ export class View {
             return;
         }
         this.model.monitor_item(treeItem);
+    }
+    private async _onWriteSelectedItem() {
+        this.writeForm.show();
+        const treeItem = this.tree.getSelectedItem();
+        if (treeItem.node) {
+            const treeItemToUse = this.model.request_write_item(treeItem);
+            if (treeItemToUse) {
+                const value = await this.model.readNodeValue(treeItem.node);
+                if (value) {
+                    this.valuesToWriteElement.setValue(value);
+                } else {
+                    this.valuesToWriteElement.setValue("");
+                }
+                this.screen.render();
+                this.valuesToWriteElement.focus();
+                this.screen.render();
+            }
+            return;
+        }
     }
 
     private _onUnmonitoredSelectedItem() {
