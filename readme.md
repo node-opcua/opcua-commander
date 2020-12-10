@@ -19,8 +19,9 @@ https://raw.githubusercontent.com/node-opcua/opcua-commander/master/docs/demo.gi
     $ git clone https://github.com/node-opcua/opcua-commander.git
     $ cd opcua-commander
     $ npm install
+    $ npm install -g typescript
+    $ npm run build
     $ node dist/index.js -e opc.tcp://localhost:26543 
-    
     
     
 ### install on ubuntu
