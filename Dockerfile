@@ -21,8 +21,10 @@ RUN dos2unix bin/opcua-commander
 # RUN npm install -g opcua-commander --unsafe-perm=true --allow-root
 # RUN npm install --unsafe-perm=true --allow-root
 # If you are building your code for production
-RUN npm ci --only=production --unsafe-perm=true --allow-root
-
+# The set registry can help in situations behind a firewall with scrict security settings and own CA Certificates.
+RUN npm config set registry http://registry.npmjs.org/ && npm ci --only=production --unsafe-perm=true --allow-root
+# Install typescript and build solution
+RUN npm install -g typescript && npm run build
 
 CMD [ "/bin/bash bin/opcua-commander" ]
 
