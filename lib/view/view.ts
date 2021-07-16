@@ -6,7 +6,7 @@ import { TreeItem } from "../widget/tree_item";
 import { ClientAlarmList, resolveNodeId, DataValue, ResultMask, VariantArrayType } from "node-opcua-client";
 
 import { Tree } from "../widget/widget_tree";
-import { Model } from "../model/model";
+import { Model, NodeChild } from "../model/model";
 import { updateAlarmBox } from "./alarm_box";
 import { w } from "../utils/utils";
 import { threadId } from "worker_threads";
@@ -70,12 +70,15 @@ export class View {
     public writeForm: blessed.Widgets.BoxElement;
     public valuesToWriteElement: blessed.Widgets.TextboxElement;
 
+    // keep sort request state
+    private sort: boolean;
 
     public model: Model;
 
-    constructor(model: Model) {
+    constructor(model: Model, sort: boolean) {
 
         this.model = model;
+        this.sort = sort;
 
         // Create a screen object.
         this.screen = blessed.screen({
@@ -484,7 +487,15 @@ export class View {
 
         async function f(this: any, node: any) {
             try {
-                const children = await this.model.expand_opcua_node(node);
+                let children = await this.model.expand_opcua_node(node);
+
+                // if sort was requested we sort the childrens by browseName property
+                if (this.sort) {
+                    children = children.sort((a: NodeChild,b: NodeChild) => {
+                        return a.browseName < b.browseName ? -1 : (a.browseName > b.browseName ? 1 : 0);
+                    });
+                }
+
                 const results = children.map((c: any) => (
                     new TreeItem({ ...c, children: this.expand_opcua_node.bind(this) })
                 ));
