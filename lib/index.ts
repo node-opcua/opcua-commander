@@ -22,6 +22,9 @@ const argv = require("yargs")
     .string("securityPolicy")
     .describe("securityPolicy", "the policy mode")
 
+    .boolean("sort")
+    .describe("sort", "sort nodes by browseName")
+
     .string("userName")
     .describe("userName", "specify the user name of a UserNameIdentityToken ")
 
@@ -88,7 +91,7 @@ if (!endpointUrl) {
     const { certificateFile, clientCertificateManager, applicationUri , applicationName} = await makeCertificate();
 
     const model = new Model();
-    const view = new View(model);
+    const view = new View(model, argv.sort || false);
     await model.initialize(
         endpointUrl, securityMode, securityPolicy, certificateFile, 
         clientCertificateManager, applicationName,applicationUri
