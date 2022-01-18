@@ -8,7 +8,7 @@ import { NodeClass } from "node-opcua-client";
 export class TreeItem {
     
     private arrow: string = "";
-    private browseName: string = "";
+    private displayName: string = "";
     private class: NodeClass = 1;
     private valueAsString: string = "";
 
@@ -21,7 +21,7 @@ export class TreeItem {
 
 
     get name(): string {
-        let str = this.arrow + " " + this.browseName;
+        let str = this.arrow + " " + this.displayName;
         if (this.class === NodeClass.Variable) {
             str += " = " + this.valueAsString;
         }

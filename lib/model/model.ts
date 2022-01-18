@@ -52,7 +52,7 @@ const data = {
 
 export interface NodeChild {
   arrow: string;
-  browseName: string;
+  displayName: string;
   nodeId: NodeId;
   nodeClass: NodeClass;
 }
@@ -504,7 +504,7 @@ export class Model extends EventEmitter {
 
           children.push({
             arrow: referenceToSymbol(ref) + symbol(ref)[0],
-            browseName: ref.browseName.toString(),
+            displayName: ref.displayName.text || ref.browseName.toString(),
             nodeId: ref.nodeId,
             nodeClass: ref.nodeClass as number,
           });
@@ -517,7 +517,7 @@ export class Model extends EventEmitter {
           const ref = result.references[i];
           children.push({
             arrow: referenceToSymbol(ref) + symbol(ref)[0],
-            browseName: ref.browseName.toString(),
+            displayName: ref.displayName.text || ref.browseName.toString(),
             nodeId: ref.nodeId,
             nodeClass: ref.nodeClass as number,
           });
@@ -530,7 +530,7 @@ export class Model extends EventEmitter {
           const ref = result.references[i];
           children.push({
             arrow: referenceToSymbol(ref) + symbol(ref)[0],
-            browseName: ref.browseName.toString(),
+            displayName: ref.displayName.text || ref.browseName.toString(),
             nodeId: ref.nodeId,
             nodeClass: ref.nodeClass as number,
           });

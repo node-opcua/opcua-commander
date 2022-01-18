@@ -486,9 +486,9 @@ export class View {
             try {
                 let children = await this.model.expand_opcua_node(node);
 
-                // we sort the childrens by browseName alphabetically
+                // we sort the childrens by displayName alphabetically
                 children = children.sort((a: NodeChild,b: NodeChild) => {
-                    return a.browseName < b.browseName ? -1 : (a.browseName > b.browseName ? 1 : 0);
+                    return a.displayName < b.displayName ? -1 : (a.displayName > b.displayName ? 1 : 0);
                 });
 
                 const results = children.map((c: any) => (
