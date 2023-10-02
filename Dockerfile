@@ -18,7 +18,7 @@ RUN dos2unix bin/opcua-commander
 # The set registry can help in situations behind a firewall with scrict security settings and own CA Certificates.
 RUN npm config set registry http://registry.npmjs.org/ && npm ci --only=production --unsafe-perm=true --allow-root
 # Install typescript and build solution
-RUN npm install -g typescript && npm run build
+RUN npm install && npm install -g typescript && npm run build
 
 ENTRYPOINT [ "./bin/opcua-commander" ]
 # to build
