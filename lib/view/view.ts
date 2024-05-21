@@ -1,4 +1,4 @@
-import * as blessed from "blessed";
+import blessed from "blessed";
 import { format, callbackify } from "util";
 import chalk from "chalk";
 

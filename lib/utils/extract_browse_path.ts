@@ -1,5 +1,5 @@
 import {
-  IBasicSession,
+  IBasicSessionAsync,
   NodeId,
   AttributeIds,
   QualifiedName,
@@ -11,11 +11,11 @@ import {
   makeBrowsePath,
 } from "node-opcua-client";
 
-async function readBrowseName(session: IBasicSession, nodeId: NodeId): Promise<QualifiedName> {
+async function readBrowseName(session: IBasicSessionAsync, nodeId: NodeId): Promise<QualifiedName> {
   const node = await session.read({ nodeId, attributeId: AttributeIds.BrowseName });
   return node.value.value;
 }
-async function getParent(session: IBasicSession, nodeId: NodeId): Promise<{ sep: string; parentNodeId: NodeId } | null> {
+async function getParent(session: IBasicSessionAsync, nodeId: NodeId): Promise<{ sep: string; parentNodeId: NodeId } | null> {
   let browseResult = await session.browse({
     browseDirection: BrowseDirection.Inverse,
     includeSubtypes: true,
@@ -42,7 +42,7 @@ async function getParent(session: IBasicSession, nodeId: NodeId): Promise<{ sep:
   }
   return null;
 }
-export async function extractBrowsePath(session: IBasicSession, nodeId: NodeId): Promise<string> {
+export async function extractBrowsePath(session: IBasicSessionAsync, nodeId: NodeId): Promise<string> {
   try {
     const browseName = await readBrowseName(session, nodeId);
     const pathElements = [];

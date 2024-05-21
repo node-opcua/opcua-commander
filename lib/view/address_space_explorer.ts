@@ -1,3 +1,3 @@
-import * as opcua from "node-opcua-client";
+import opcua from "node-opcua-client";
 
 

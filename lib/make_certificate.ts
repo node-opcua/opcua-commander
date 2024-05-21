@@ -2,9 +2,9 @@
 import envPaths from "env-paths";
 import { makeApplicationUrn } from "node-opcua-client";
 import { OPCUACertificateManager } from "node-opcua-certificate-manager";
-import * as fs from "fs";
-import * as path from "path";
-import * as os from "os";
+import fs from "fs";
+import path from "path";
+import os from "os";
 
 const paths = envPaths("opcua-commander");
 
