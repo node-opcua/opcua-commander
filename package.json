@@ -1,6 +1,6 @@
 {
   "name": "opcua-commander",
-  "version": "0.37.0",
+  "version": "0.38.0",
   "description": "OPCUA CLI client",
   "main": "bin/bundle.js",
   "keywords": [
