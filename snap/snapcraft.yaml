@@ -1,6 +1,6 @@
 name: opcua-commander 
 base: core22
-version: "0.37.0"
+version: "0.38.0"
 summary: Curse based OPCUA Client for the command line
 description: |
   opcua-commander is a OPCUA Client application that runs in the terminal.
