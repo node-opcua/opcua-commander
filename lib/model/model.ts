@@ -1,6 +1,7 @@
 import { EventEmitter } from "events";
 import os from "os";
 import fs from "fs";
+import { exploreCertificate, certificateMatchesPrivateKey } from "node-opcua-crypto";
 
 import chalk from "chalk";
 const {
@@ -81,15 +82,30 @@ export function makeUserIdentity(argv: any): UserIdentityInfo {
     };
   } else if (argv.userCertificate && argv.userCertificatePrivateKey) {
     if (!fs.existsSync(argv.userCertificate)) {
-       throw new Error("Cannot find user certificate file: " + argv.userCertificate);
+      throw new Error("Cannot find user certificate file: " + argv.userCertificate);
     }
     if (!fs.existsSync(argv.userCertificatePrivateKey)) {
-       throw new Error("Cannot find user certificate private key file: " + argv.userCertificatePrivateKey);
+      throw new Error("Cannot find user certificate private key file: " + argv.userCertificatePrivateKey);
     }
+    const certificateData = fs.readFileSync(argv.userCertificate);
+    const privateKey = fs.readFileSync(argv.userCertificatePrivateKey, "utf-8");
+
+    // verify certificate and private key
+    if (!certificateMatchesPrivateKey(certificateData, privateKey as any)) {
+      throw new Error("User certificate and private key do not match!");
+    }
+
+    const certInfo = exploreCertificate(certificateData);
+    console.log(cyan("Using User Certificate:"));
+    console.log(cyan("  subject:  "), green(certInfo.tbsCertificate.subject.toString()));
+    console.log(cyan("  issuer:   "), green(certInfo.tbsCertificate.issuer.toString()));
+    console.log(cyan("  notBefore:"), green(certInfo.tbsCertificate.validity.notBefore.toISOString()));
+    console.log(cyan("  notAfter: "), green(certInfo.tbsCertificate.validity.notAfter.toISOString()));
+
     userIdentity = {
       type: UserTokenType.Certificate,
-      certificateData: fs.readFileSync(argv.userCertificate),
-      privateKey: fs.readFileSync(argv.userCertificatePrivateKey, "utf-8"),
+      certificateData,
+      privateKey,
     };
   }
   return userIdentity;
