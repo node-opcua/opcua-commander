@@ -26,7 +26,12 @@ function toContent(node: any, isLastChild: boolean, parent: any): any {
     const hasChildren = node.children && node.children.length > 0;
     //    [+]
     const c = node.expanded ? (hasChildren ? chalk.green("▼") : "─") : "►";
-    const str = node.prefix + s + c + node.name;
+    
+    let typeName = "";
+    if (node.typeDefinitionName) {
+        typeName = chalk.grey(" [" + node.typeDefinitionName + "]");
+    }
+    const str = node.prefix + s + c + node.name + typeName;
 
     return str;
 }

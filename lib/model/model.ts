@@ -23,6 +23,7 @@ import {
   DataType,
   DataTypeIds,
   DataValue,
+  ExpandedNodeId,
   installAlarmMonitoring,
   MessageSecurityMode,
   MonitoringMode,
@@ -70,6 +71,8 @@ export interface NodeChild {
   displayName: string;
   nodeId: NodeId;
   nodeClass: NodeClass;
+  typeDefinition?: ExpandedNodeId;
+  typeDefinitionName?: string;
 }
 
 export function makeUserIdentity(argv: any): UserIdentityInfo {
@@ -176,6 +179,7 @@ export class Model extends EventEmitter {
   private monitoredItemsListData: any[] = [];
   private clientAlarms: ClientAlarmList = new ClientAlarmList();
   private enumDefinitionCache: Map<string, Map<number, string> | null> = new Map();
+  private typeNameCache: Map<string, string> = new Map();
 
   public data: any;
   public constructor() {
@@ -185,6 +189,7 @@ export class Model extends EventEmitter {
 
   public clearCache() {
     this.enumDefinitionCache.clear();
+    this.typeNameCache.clear();
   }
 
   public async initialize(
@@ -785,6 +790,7 @@ export class Model extends EventEmitter {
             displayName: ref.displayName.text || ref.browseName.toString(),
             nodeId: ref.nodeId,
             nodeClass: ref.nodeClass as number,
+            typeDefinition: ref.typeDefinition,
           });
         }
       }
@@ -798,6 +804,7 @@ export class Model extends EventEmitter {
             displayName: ref.displayName.text || ref.browseName.toString(),
             nodeId: ref.nodeId,
             nodeClass: ref.nodeClass as number,
+            typeDefinition: ref.typeDefinition,
           });
         }
       }
@@ -811,7 +818,43 @@ export class Model extends EventEmitter {
             displayName: ref.displayName.text || ref.browseName.toString(),
             nodeId: ref.nodeId,
             nodeClass: ref.nodeClass as number,
+            typeDefinition: ref.typeDefinition,
           });
+        }
+      }
+
+      // Resolve type names
+      const typesToRead: { nodeId: NodeId; index: number }[] = [];
+      for (let i = 0; i < children.length; i++) {
+        const child = children[i] as any;
+        if (child.typeDefinition && !child.typeDefinition.isEmpty()) {
+          const typeNodeId = NodeId.resolveNodeId(child.typeDefinition);
+          const cacheKey = typeNodeId.toString();
+          if (this.typeNameCache.has(cacheKey)) {
+            child.typeDefinitionName = this.typeNameCache.get(cacheKey);
+          } else {
+            typesToRead.push({ nodeId: typeNodeId, index: i });
+          }
+        }
+      }
+
+      if (typesToRead.length > 0) {
+        // Read browse names of types in batch
+        const nodesToRead = typesToRead.map((t) => ({
+          nodeId: t.nodeId,
+          attributeId: AttributeIds.BrowseName,
+        }));
+        const dataValues = await this.session!.read(nodesToRead);
+        for (let j = 0; j < dataValues.length; j++) {
+          const dv = dataValues[j];
+          const typeNodeId = typesToRead[j].nodeId;
+          const childIndex = typesToRead[j].index;
+          let typeName = "";
+          if (dv.statusCode === StatusCodes.Good && dv.value.value) {
+            typeName = dv.value.value.name || dv.value.value.toString();
+            this.typeNameCache.set(typeNodeId.toString(), typeName);
+          }
+          (children[childIndex] as any).typeDefinitionName = typeName;
         }
       }
 
