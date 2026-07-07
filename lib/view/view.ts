@@ -319,6 +319,25 @@ export class View {
     return -1;
   }
 
+  private activateSearch(): void {
+    this.filterForm.show();
+    this.area1.append(this.filterForm);
+    this.filterInputElement.focus();
+    this.screen.render();
+  }
+
+  private performSearch(query: string, startIndex: number, direction: "down" | "up"): void {
+    const matchIndex = this.findMatch(this.tree, query, startIndex, direction);
+    if (matchIndex >= 0) {
+      this.filterInputElement.style.fg = "white";
+      this.tree.select(matchIndex);
+      this.tree.scrollTo(matchIndex);
+    } else {
+      this.filterInputElement.style.fg = "red";
+    }
+    this.screen.render();
+  }
+
   install_filterFormWindow() {
     this.filterForm = blessed.box({
       parent: this.area1,
@@ -364,15 +383,7 @@ export class View {
       process.nextTick(() => {
         const query = this.filterInputElement.getValue().trim();
         if (query) {
-          const matchIndex = this.findMatch(this.tree, query, this.tree.getSelectedIndex(), "down");
-          if (matchIndex >= 0) {
-            this.filterInputElement.style.fg = "white";
-            this.tree.select(matchIndex);
-            this.tree.scrollTo(matchIndex);
-          } else {
-            this.filterInputElement.style.fg = "red";
-          }
-          this.screen.render();
+          this.performSearch(query, this.tree.getSelectedIndex(), "down");
         } else {
           this.filterInputElement.style.fg = "white";
           this.screen.render();
@@ -396,16 +407,7 @@ export class View {
     this.screen.key(["f3"], () => {
       const query = this.filterInputElement.getValue().trim();
       if (query) {
-        const currentIndex = this.tree.getSelectedIndex();
-        const matchIndex = this.findMatch(this.tree, query, currentIndex + 1, "down");
-        if (matchIndex >= 0) {
-          this.filterInputElement.style.fg = "white";
-          this.tree.select(matchIndex);
-          this.tree.scrollTo(matchIndex);
-        } else {
-          this.filterInputElement.style.fg = "red";
-        }
-        this.screen.render();
+        this.performSearch(query, this.tree.getSelectedIndex() + 1, "down");
       }
     });
 
@@ -413,26 +415,14 @@ export class View {
     this.screen.key(["S-f3"], () => {
       const query = this.filterInputElement.getValue().trim();
       if (query) {
-        const currentIndex = this.tree.getSelectedIndex();
-        const matchIndex = this.findMatch(this.tree, query, currentIndex - 1, "up");
-        if (matchIndex >= 0) {
-          this.filterInputElement.style.fg = "white";
-          this.tree.select(matchIndex);
-          this.tree.scrollTo(matchIndex);
-        } else {
-          this.filterInputElement.style.fg = "red";
-        }
-        this.screen.render();
+        this.performSearch(query, this.tree.getSelectedIndex() - 1, "up");
       }
     });
 
     // Bind keys on the tree directly to ensure search is activated
     // even when the tree intercepts standard screen/listbar keys.
     this.tree.key(["f", "/"], () => {
-      this.filterForm.show();
-      this.area1.append(this.filterForm);
-      this.filterInputElement.focus();
-      this.screen.render();
+      this.activateSearch();
     });
   }
 
@@ -588,12 +578,7 @@ export class View {
       },
       Filter: {
         keys: ["f", "/"],
-        callback: () => {
-          this.filterForm.show();
-          this.area1.append(this.filterForm);
-          this.filterInputElement.focus();
-          this.screen.render();
-        },
+        callback: () => this.activateSearch(),
       },
       //  "Menu": { keys: ["A-a", "x"], callback: () => this.menuBar.focus() }
     });
