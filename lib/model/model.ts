@@ -1,5 +1,7 @@
 import { EventEmitter } from "events";
 import os from "os";
+import fs from "fs";
+
 import {
   bgBlueBright,
   yellow,
@@ -41,9 +43,9 @@ import { OPCUACertificateManager } from "node-opcua-certificate-manager";
 import { StatusCodes } from "node-opcua-status-code";
 import { findBasicDataType } from "node-opcua-pseudo-session";
 
-import { w } from "../utils/utils";
-import { extractBrowsePath } from "../utils/extract_browse_path";
-import { TreeItem } from "../widget/tree_item";
+import { w } from "../utils/utils.js";
+import { extractBrowsePath } from "../utils/extract_browse_path.js";
+import { TreeItem } from "../widget/tree_item.js";
 
 const attributeKeys: string[] = [];
 for (let i = 1; i <= AttributeIds.AccessLevelEx - 1; i++) {
@@ -78,10 +80,16 @@ export function makeUserIdentity(argv: any): UserIdentityInfo {
       password: argv.password,
     };
   } else if (argv.userCertificate && argv.userCertificatePrivateKey) {
+    if (!fs.existsSync(argv.userCertificate)) {
+       throw new Error("Cannot find user certificate file: " + argv.userCertificate);
+    }
+    if (!fs.existsSync(argv.userCertificatePrivateKey)) {
+       throw new Error("Cannot find user certificate private key file: " + argv.userCertificatePrivateKey);
+    }
     userIdentity = {
       type: UserTokenType.Certificate,
-      certificateData: argv.userCertificate,
-      privateKey: "todo",
+      certificateData: fs.readFileSync(argv.userCertificate),
+      privateKey: fs.readFileSync(argv.userCertificatePrivateKey, "utf-8"),
     };
   }
   return userIdentity;
@@ -186,42 +194,42 @@ export class Model extends EventEmitter {
       keepSessionAlive: true,
     });
 
-    this.client.on("send_request", function () {
+    (this.client as any).on("send_request", function () {
       data.transactionCount++;
     });
 
-    this.client.on("send_chunk", function (chunk) {
+    (this.client as any).on("send_chunk", function (chunk: any) {
       data.sentBytes += chunk.length;
       data.sentChunks++;
     });
 
-    this.client.on("receive_chunk", function (chunk) {
+    (this.client as any).on("receive_chunk", function (chunk: any) {
       data.receivedBytes += chunk.length;
       data.receivedChunks++;
     });
 
-    this.client.on("backoff", function (number, delay) {
+    (this.client as any).on("backoff", function (number: any, delay: any) {
       data.backoffCount += 1;
       console.log(yellow(`backoff  attempt #${number} retrying in ${delay / 1000.0} seconds`));
     });
 
-    this.client.on("start_reconnection", () => {
+    (this.client as any).on("start_reconnection", () => {
       console.log(red(" !!!!!!!!!!!!!!!!!!!!!!!!  Starting reconnection !!!!!!!!!!!!!!!!!!! " + this.endpointUrl));
     });
 
-    this.client.on("connection_reestablished", () => {
+    (this.client as any).on("connection_reestablished", () => {
       console.log(red(" !!!!!!!!!!!!!!!!!!!!!!!!  CONNECTION RE-ESTABLISHED !!!!!!!!!!!!!!!!!!! " + this.endpointUrl));
       data.reconnectionCount++;
     });
 
     // monitoring des lifetimes
-    this.client.on("lifetime_75", (token) => {
+    (this.client as any).on("lifetime_75", (token: any) => {
       if (this.verbose) {
         console.log(red("received lifetime_75 on " + this.endpointUrl));
       }
     });
 
-    this.client.on("security_token_renewed", () => {
+    (this.client as any).on("security_token_renewed", () => {
       data.tokenRenewalCount += 1;
       if (this.verbose) {
         console.log(green(" security_token_renewed on " + this.endpointUrl));
@@ -253,14 +261,14 @@ export class Model extends EventEmitter {
     console.log("connecting to ....", endpointUrl);
     try {
       await this.client!.connect(endpointUrl);
-    } catch (err) {
+    } catch (err: any) {
       console.log(" Cannot connect", err.toString());
       if (this.client!.securityMode !== MessageSecurityMode.None && err.message.match(/has been disconnected by third party/)) {
         console.log(
           "Because you are using a secure connection, you need to make sure that the certificate\n" +
           "of opcua-commander is trusted by the server you're trying to connect to.\n" +
           "Please see the documentation for instructions on how to import a certificate into the CA store of the server.\n" +
-          `The opcua-commander certificate is in the folder \n${cyan(this.client!.certificateFile)}`
+          `The opcua-commander certificate is in the folder \n${cyan(this.client!.certificateFile!)}`
         );
       }
       this.emit("connectionError", err);
@@ -269,7 +277,7 @@ export class Model extends EventEmitter {
 
     try {
       this.session = await this.client!.createSession(this.userIdentity);
-    } catch (err) {
+    } catch (err: any) {
       console.log(" Cannot create session ", err.toString());
       console.log(red("  exiting"));
       setTimeout(function () {
@@ -306,15 +314,17 @@ export class Model extends EventEmitter {
   }
 
   public async writeNode(node: { nodeId: NodeId }, data: any) {
+    if (!this.session) return StatusCodes.BadSessionIdInvalid;
     const dataTypeIdDataValue = await this.session.read({ nodeId: node.nodeId, attributeId: AttributeIds.DataType });
     const arrayDimensionDataValue = await this.session.read({ nodeId: node.nodeId, attributeId: AttributeIds.ArrayDimensions });
     const valueRankDataValue = await this.session.read({ nodeId: node.nodeId, attributeId: AttributeIds.ValueRank });
 
-    const dataTypeId = dataTypeIdDataValue.value.value as NodeId;
-    const dataType = await findBasicDataType(this.session, dataTypeId);
+    const dataTypeId = dataTypeIdDataValue.value?.value as NodeId;
+    if (!dataTypeId) return StatusCodes.BadDataTypeIdUnknown;
+    const dataType = await findBasicDataType(this.session as any, dataTypeId);
 
-    const arrayDimension = arrayDimensionDataValue.value.value as null | number[];
-    const valueRank = valueRankDataValue.value.value as number;
+    const arrayDimension = arrayDimensionDataValue.value?.value as null | number[];
+    const valueRank = valueRankDataValue.value?.value as number;
 
     const coerceBoolean = (data: any) => {
       return data === "true" || data === "1" || data === true;
@@ -389,10 +399,10 @@ export class Model extends EventEmitter {
   }
 
   public async extractBrowsePath(nodeId: NodeId): Promise<string> {
-    return await extractBrowsePath(this.session, nodeId);
+    return await extractBrowsePath(this.session!, nodeId);
   }
   public async readNode(node: any) {
-    return await this.session.read(node);
+    return await this.session!.read(node);
   }
   public async readNodeValue(node: any) {
     if (!this.session) {
@@ -401,12 +411,12 @@ export class Model extends EventEmitter {
 
     const dataValues = await this.readNode(node);
     if (dataValues.statusCode == StatusCodes.Good) {
-      if (dataValues.value.value) {
+      if (dataValues.value?.value) {
         switch (dataValues.value.arrayType) {
           case VariantArrayType.Scalar:
             return "" + dataValues.value.value;
           case VariantArrayType.Array:
-            return dataValues.value.value.join(",");
+            return (dataValues.value.value as any[]).join(",");
           default:
             return "";
         }
@@ -432,9 +442,9 @@ export class Model extends EventEmitter {
       },
       TimestampsToReturn.Both,
       MonitoringMode.Reporting,
-      (err: Error | null, monitoredItem: ClientMonitoredItem) => {
-        if (err) {
-          console.log("cannot create monitored item", err.message);
+      (err: Error | null, monitoredItem?: ClientMonitoredItem) => {
+        if (err || !monitoredItem) {
+          console.log("cannot create monitored item", err ? err.message : "unknown error");
           return;
         }
 
@@ -497,9 +507,9 @@ export class Model extends EventEmitter {
     if (!this.session) {
       return [];
     }
-    const nodesToRead: ReadValueIdOptions[] = attributeKeys.map((attributeId: string) => ({
+    const nodesToRead: ReadValueIdOptions[] = attributeKeys.map((attributeIdName: string) => ({
       nodeId,
-      attributeId: ((AttributeIds as any)[attributeId as any]) as AttributeIds,
+      attributeId: ((AttributeIds as any)[attributeIdName as any]) as AttributeIds,
     }));
 
     try {
@@ -514,9 +524,9 @@ export class Model extends EventEmitter {
         if (dataValue.statusCode !== StatusCodes.Good) {
           continue;
         }
-        const s = toString1(nodeToRead.attributeId, dataValue);
+        const s = toString1(nodeToRead.attributeId!, dataValue);
         results.push({
-          attribute: attributeIdToString[nodeToRead.attributeId],
+          attribute: attributeIdToString[nodeToRead.attributeId!],
           text: s,
         });
       }
@@ -613,7 +623,7 @@ export class Model extends EventEmitter {
     }
   }
 }
-function invert<T>(o: Record<string, T>) {
+function invert<T extends { toString(): string }>(o: Record<string, T>) {
   const r: Record<string, string> = {};
   for (const [k, v] of Object.entries(o)) {
     r[v.toString()] = k;
@@ -641,18 +651,19 @@ function toString1(attribute: AttributeIds, dataValue: DataValue | null) {
   if (!dataValue || !dataValue.value || !dataValue.value.hasOwnProperty("value")) {
     return "<null>";
   }
+  const value = (dataValue.value as any).value;
   switch (attribute) {
     case AttributeIds.DataType:
-      return DataTypeIdsToString[dataValue.value.value.value] + " (" + dataValue.value.value.toString() + ")";
+      return DataTypeIdsToString[value] + " (" + value.toString() + ")";
     case AttributeIds.NodeClass:
-      return NodeClass[dataValue.value.value] + " (" + dataValue.value.value + ")";
+      return NodeClass[value] + " (" + value + ")";
     case AttributeIds.IsAbstract:
     case AttributeIds.Historizing:
     case AttributeIds.EventNotifier:
-      return dataValue.value.value ? "true" : "false";
+      return value ? "true" : "false";
     case AttributeIds.WriteMask:
     case AttributeIds.UserWriteMask:
-      return " (" + dataValue.value.value + ")";
+      return " (" + value + ")";
     case AttributeIds.NodeId:
     case AttributeIds.BrowseName:
     case AttributeIds.DisplayName:
@@ -662,16 +673,16 @@ function toString1(attribute: AttributeIds, dataValue: DataValue | null) {
     case AttributeIds.Executable:
     case AttributeIds.UserExecutable:
     case AttributeIds.MinimumSamplingInterval:
-      if (!dataValue.value.value) {
+      if (!value) {
         return "null";
       }
-      return dataValue.value.value.toString();
+      return value.toString();
     case AttributeIds.UserAccessLevel:
     case AttributeIds.AccessLevel:
-      if (!dataValue.value.value) {
+      if (!value) {
         return "null";
       }
-      return accessLevelFlagToString(dataValue.value.value) + " (" + dataValue.value.value + ")";
+      return accessLevelFlagToString(value) + " (" + value + ")";
     default:
       return dataValueToString(dataValue);
   }
