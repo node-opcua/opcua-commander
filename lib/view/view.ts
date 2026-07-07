@@ -69,6 +69,7 @@ export class View {
   private _history: NodeId[] = [];
   private _historyIndex = -1;
   private _isPushingToHistory = false;
+  private _referenceFilter: "both" | "forward" | "backward" = "both";
 
   public model: Model;
 
@@ -583,16 +584,60 @@ export class View {
       }
     });
 
+    this.referenceList.key(["f"], () => {
+        this._referenceFilter = "forward";
+        const treeItem = this.tree.getSelectedItem();
+        if (treeItem && treeItem.node) {
+            this.fill_referencesRegion(treeItem.node.nodeId);
+        }
+    });
+    this.referenceList.key(["b"], () => {
+        this._referenceFilter = "backward";
+        const treeItem = this.tree.getSelectedItem();
+        if (treeItem && treeItem.node) {
+            this.fill_referencesRegion(treeItem.node.nodeId);
+        }
+    });
+    this.referenceList.key(["a"], () => {
+        this._referenceFilter = "both";
+        const treeItem = this.tree.getSelectedItem();
+        if (treeItem && treeItem.node) {
+            this.fill_referencesRegion(treeItem.node.nodeId);
+        }
+    });
+
     return this.referenceList;
   }
 
   private async fill_referencesRegion(nodeId: NodeId) {
-    const references = await this.model.browseReferences(nodeId);
+    let references = await this.model.browseReferences(nodeId);
+    
+    // Filtering
+    if (this._referenceFilter === "forward") {
+        references = references.filter(r => r.isForward);
+    } else if (this._referenceFilter === "backward") {
+        references = references.filter(r => !r.isForward);
+    }
+
     (this.referenceList as any)._nodeIds = references.map((ref) => NodeId.resolveNodeId(ref.nodeId));
+    
+    const blessedColors = [
+        "white", "cyan", "green", "yellow", "magenta", "blue", "red",
+        "light-cyan", "light-green", "light-yellow", "light-magenta", "light-blue", "light-red"
+    ];
+
     const items = references.map((ref) => {
       const dir = ref.isForward ? "->" : "<-";
-      return ` ${dir} ${ref.referenceTypeId.toString().split(";").pop()} : ${ref.browseName.toString()} (${ref.nodeId.toString()})`;
+      const ns = ref.nodeId.namespace;
+      const color = blessedColors[ns % blessedColors.length];
+      const browseName = `{${color}-fg}${ref.browseName.toString()}{/${color}-fg}`;
+      const nodeIdStr = chalk.grey(`(${ref.nodeId.toString()})`);
+      const refType = ref.referenceTypeId.toString().split(";").pop();
+      return ` ${dir} ${refType} : ${browseName} ${nodeIdStr}`;
     });
+    
+    const filterLabel = this._referenceFilter.toUpperCase();
+    this.referenceList.setLabel(` {bold}{cyan-fg}References [${filterLabel}]{/cyan-fg}{/bold} `);
     this.referenceList.setItems(items as any);
     this.screen.render();
   }
