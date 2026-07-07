@@ -14,7 +14,8 @@
   ],
   "scripts": {
     "build": "tsc -b && npm run bundle",
-    "bundle": "npx -y esbuild --bundle --outfile=bin/bundle.js --format=esm --external:blessed  --external:chalk --external:wrap-ansi --external:proper-lockfile --external:node-opcua-crypto --minify-syntax --sourcemap --platform=node --banner:js=\"import { createRequire } from 'module'; import { fileURLToPath } from 'url'; import { dirname } from 'path'; const require = createRequire(import.meta.url); const __filename = fileURLToPath(import.meta.url); const __dirname = dirname(__filename);\" lib/index.ts",
+    "bundle": "node scratch/patch-blessed.cjs && tsup && move /Y bin\\index.cjs bin\\bundle.cjs && xcopy /E /I /Y node_modules\\blessed\\usr bin\\usr",
+    "test-server": "node test-bed/server.cjs",
     "release": "npm run build && npm run bundle && npx release-it",
     "test": "echo \"Error: no test specified\" && exit 1",
     "ncu": "npx npm-check-updates -u -x chalk,yargs,env-paths,update-notifier,camel-case,cli-truncate",
@@ -41,7 +42,7 @@
   },
   "dependencies": {
     "blessed": "^0.1.81",
-    "chalk": "^4.1.2",
+    "chalk": "^5.6.2",
     "check-node-version": "4.2.1",
     "cli-truncate": "2.1.0",
     "commander": "^15.0.0",
@@ -49,14 +50,17 @@
     "node-opcua-client": "^2.174.0",
     "node-opcua-crypto": "^5.3.6",
     "node-opcua-pki": "^6.18.0",
+    "proper-lockfile": "^4.1.2",
     "wordwrap": "^1.0.0"
   },
   "devDependencies": {
     "@types/blessed": "^0.1.27",
     "@types/wordwrap": "^1.0.3",
+    "@vercel/ncc": "^0.44.1",
     "es-abstract": "^1.24.2",
     "node-opcua": "^2.174.0",
     "source-map-support": "^0.5.21",
+    "tsup": "^8.5.1",
     "typescript": "^6.0.3"
   }
 }

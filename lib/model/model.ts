@@ -1,7 +1,7 @@
 import { EventEmitter } from "events";
 import os from "os";
 import fs from "fs";
-import { exploreCertificate, certificateMatchesPrivateKey } from "node-opcua-crypto";
+import { exploreCertificate, certificateMatchesPrivateKey, readPrivateKey, readCertificate } from "node-opcua-crypto";
 
 import chalk from "chalk";
 const {
@@ -87,25 +87,26 @@ export function makeUserIdentity(argv: any): UserIdentityInfo {
     if (!fs.existsSync(argv.userCertificatePrivateKey)) {
       throw new Error("Cannot find user certificate private key file: " + argv.userCertificatePrivateKey);
     }
-    const certificateData = fs.readFileSync(argv.userCertificate);
-    const privateKey = fs.readFileSync(argv.userCertificatePrivateKey, "utf-8");
+    const certificateData = readCertificate(argv.userCertificate);
+    const privateKeyPEM = fs.readFileSync(argv.userCertificatePrivateKey, "utf-8");
+    const privateKey = readPrivateKey(argv.userCertificatePrivateKey);
 
     // verify certificate and private key
-    if (!certificateMatchesPrivateKey(certificateData, privateKey as any)) {
+    if (!certificateMatchesPrivateKey(certificateData, privateKey)) {
       throw new Error("User certificate and private key do not match!");
     }
 
     const certInfo = exploreCertificate(certificateData);
+    const formatX500Name = (name: any) => Object.entries(name).map(([k, v]) => `${k}=${v}`).join(", ");
     console.log(cyan("Using User Certificate:"));
-    console.log(cyan("  subject:  "), green(certInfo.tbsCertificate.subject.toString()));
-    console.log(cyan("  issuer:   "), green(certInfo.tbsCertificate.issuer.toString()));
-    console.log(cyan("  notBefore:"), green(certInfo.tbsCertificate.validity.notBefore.toISOString()));
-    console.log(cyan("  notAfter: "), green(certInfo.tbsCertificate.validity.notAfter.toISOString()));
+    console.log(cyan("  subject:  "), green(formatX500Name(certInfo.tbsCertificate.subject)));
+    console.log(cyan("  issuer:   "), green(formatX500Name(certInfo.tbsCertificate.issuer)));
+    console.log(cyan("  validity: "), green(certInfo.tbsCertificate.validity.notBefore.toISOString() + " - " + certInfo.tbsCertificate.validity.notAfter.toISOString()));
 
     userIdentity = {
       type: UserTokenType.Certificate,
       certificateData,
-      privateKey,
+      privateKey: privateKeyPEM,
     };
   }
   return userIdentity;
@@ -669,8 +670,10 @@ function toString1(attribute: AttributeIds, dataValue: DataValue | null) {
   }
   const value = (dataValue.value as any).value;
   switch (attribute) {
-    case AttributeIds.DataType:
-      return DataTypeIdsToString[value] + " (" + value.toString() + ")";
+    case AttributeIds.DataType: {
+      const name = (value instanceof NodeId && value.namespace === 0) ? DataTypeIdsToString[value.value.toString()] : undefined;
+      return (name || "undefined") + " (" + value.toString() + ")";
+    }
     case AttributeIds.NodeClass:
       return NodeClass[value] + " (" + value + ")";
     case AttributeIds.IsAbstract:

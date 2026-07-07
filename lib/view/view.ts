@@ -40,7 +40,6 @@ const style = {
   },
 };
 
-let old_console_log: any;
 
 export function makeItems(arr: any[], width: number): string[] {
   return arr.map((a) => {
@@ -314,16 +313,6 @@ export class View {
       style: { ...style },
     });
 
-    old_console_log = console.log;
-
-    console.log = function (...args: [any]) {
-      const str = format.apply(null, args);
-      const lines = str.split("\n");
-      lines.forEach((str: string) => {
-        logWindow.addItem(str);
-      });
-      logWindow.select((logWindow as any).items.length - 1);
-    };
     this.area2.append(logWindow);
     return logWindow;
   }
@@ -652,5 +641,11 @@ export class View {
     const treeItem = this.tree.getSelectedItem();
     const browsePath = await this.model.extractBrowsePath(treeItem.node.nodeId);
     console.log(chalk.cyan("selected node browse path :", chalk.magenta(browsePath)));
+  }
+
+  public async run(): Promise<void> {
+    return new Promise<void>((resolve) => {
+      this.screen.on("destroy", resolve);
+    });
   }
 }
