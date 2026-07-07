@@ -786,6 +786,12 @@ export class Model extends EventEmitter {
         dataTypeNodeId = dataValues[dataTypeIdx].value.value;
       }
 
+      let nodeClass: NodeClass | null = null;
+      const nodeClassIdx = nodesToRead.findIndex(n => n.attributeId === AttributeIds.NodeClass);
+      if (nodeClassIdx >= 0 && dataValues[nodeClassIdx].statusCode === StatusCodes.Good) {
+        nodeClass = dataValues[nodeClassIdx].value.value as NodeClass;
+      }
+
       // Pre-resolve enumeration string for the Value attribute
       let resolvedEnumString: string | null = null;
       if (dataTypeNodeId) {
@@ -810,28 +816,30 @@ export class Model extends EventEmitter {
         }
 
         if (nodeToRead.attributeId === AttributeIds.Value) {
-          // Push separate entries for a better UX
-          results.push({
-            attribute: "Value",
-            text: dataValueValueToString(dataValue, resolvedEnumString)
-          });
-          results.push({
-            attribute: "StatusCode",
-            text: dataValue.statusCode ? dataValue.statusCode.toString() : "Good"
-          });
-          if (dataValue.sourceTimestamp && dataValue.sourceTimestamp.getTime() !== 0) {
-            let src = dataValue.sourceTimestamp.toISOString();
-            if (dataValue.sourcePicoseconds !== undefined && dataValue.sourcePicoseconds !== 0) {
-              src += " ns:" + dataValue.sourcePicoseconds;
+          if (nodeClass === NodeClass.Variable || nodeClass === NodeClass.VariableType) {
+            // Push separate entries for a better UX
+            results.push({
+              attribute: "Value",
+              text: dataValueValueToString(dataValue, resolvedEnumString)
+            });
+            results.push({
+              attribute: "StatusCode",
+              text: dataValue.statusCode ? dataValue.statusCode.toString() : "Good"
+            });
+            if (dataValue.sourceTimestamp && dataValue.sourceTimestamp.getTime() !== 0) {
+              let src = dataValue.sourceTimestamp.toISOString();
+              if (dataValue.sourcePicoseconds !== undefined && dataValue.sourcePicoseconds !== 0) {
+                src += " ns:" + dataValue.sourcePicoseconds;
+              }
+              results.push({ attribute: "SourceTimestamp", text: src });
             }
-            results.push({ attribute: "SourceTimestamp", text: src });
-          }
-          if (dataValue.serverTimestamp && dataValue.serverTimestamp.getTime() !== 0) {
-            let srv = dataValue.serverTimestamp.toISOString();
-            if (dataValue.serverPicoseconds !== undefined && dataValue.serverPicoseconds !== 0) {
-              srv += " ns:" + dataValue.serverPicoseconds;
+            if (dataValue.serverTimestamp && dataValue.serverTimestamp.getTime() !== 0) {
+              let srv = dataValue.serverTimestamp.toISOString();
+              if (dataValue.serverPicoseconds !== undefined && dataValue.serverPicoseconds !== 0) {
+                srv += " ns:" + dataValue.serverPicoseconds;
+              }
+              results.push({ attribute: "ServerTimestamp", text: srv });
             }
-            results.push({ attribute: "ServerTimestamp", text: srv });
           }
         } else {
           const s = toString1(nodeToRead.attributeId!, dataValue, dataTypeNodeId, null);
