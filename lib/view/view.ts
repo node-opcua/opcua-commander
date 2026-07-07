@@ -576,9 +576,10 @@ export class View {
     });
     this.area1.append(this.referenceList);
 
-    this.referenceList.on("select", (item: any) => {
-      if (item && (item as any).nodeId) {
-        this._jumpToNode((item as any).nodeId);
+    this.referenceList.on("select", (item: any, index: number) => {
+      const nodeIds = (this.referenceList as any)._nodeIds;
+      if (nodeIds && nodeIds[index]) {
+        this._jumpToNode(nodeIds[index]);
       }
     });
 
@@ -587,12 +588,10 @@ export class View {
 
   private async fill_referencesRegion(nodeId: NodeId) {
     const references = await this.model.browseReferences(nodeId);
+    (this.referenceList as any)._nodeIds = references.map((ref) => NodeId.resolveNodeId(ref.nodeId));
     const items = references.map((ref) => {
       const dir = ref.isForward ? "->" : "<-";
-      const str = ` ${dir} ${ref.referenceTypeId.toString().split(";").pop()} : ${ref.browseName.toString()} (${ref.nodeId.toString()})`;
-      const item = new (blessed as any).list.item(str);
-      (item as any).nodeId = NodeId.resolveNodeId(ref.nodeId);
-      return item;
+      return ` ${dir} ${ref.referenceTypeId.toString().split(";").pop()} : ${ref.browseName.toString()} (${ref.nodeId.toString()})`;
     });
     this.referenceList.setItems(items as any);
     this.screen.render();
