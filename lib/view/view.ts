@@ -64,6 +64,11 @@ export class View {
   public tree!: Tree;
   public writeForm!: blessed.Widgets.BoxElement;
   public valuesToWriteElement!: blessed.Widgets.TextboxElement;
+  public referenceList!: blessed.Widgets.ListElement;
+
+  private _history: NodeId[] = [];
+  private _historyIndex = -1;
+  private _isPushingToHistory = false;
 
   public model: Model;
 
@@ -96,6 +101,7 @@ export class View {
     this.screen.append(this.area2);
 
     this.attributeList = this.install_attributeList();
+    this.referenceList = this.install_referenceList();
     this.install_monitoredItemsWindow();
     this.install_writeFormWindow();
     this.logWindow = this.install_logWindow();
@@ -105,8 +111,12 @@ export class View {
     // Global focus cycling
     this.screen.key(["tab"], () => {
       if (this.screen.focused === this.tree) {
-        this.attributeList.focus();
-      } else if (this.screen.focused === this.attributeList) {
+        if (this.attributeList.visible) {
+            this.attributeList.focus();
+        } else {
+            this.referenceList.focus();
+        }
+      } else if (this.screen.focused === this.attributeList || this.screen.focused === this.referenceList) {
         this.monitoredItemsList.focus();
       } else if (this.screen.focused === this.monitoredItemsList) {
         this.logWindow.focus();
@@ -120,7 +130,11 @@ export class View {
       } else if (this.screen.focused === this.logWindow) {
         this.monitoredItemsList.focus();
       } else if (this.screen.focused === this.monitoredItemsList) {
-        this.attributeList.focus();
+        if (this.attributeList.visible) {
+            this.attributeList.focus();
+        } else {
+            this.referenceList.focus();
+        }
       } else {
         this.tree.focus();
       }
@@ -415,6 +429,18 @@ export class View {
         keys: ["k"],
         callback: () => this._onCallMethodSelectedItem(),
       },
+      Reference: {
+        keys: ["r"],
+        callback: () => this._toggleAttributeReference(),
+      },
+      Back: {
+        keys: ["["],
+        callback: () => this._historyBack(),
+      },
+      Forward: {
+        keys: ["]"],
+        callback: () => this._historyForward(),
+      },
       //  "Menu": { keys: ["A-a", "x"], callback: () => this.menuBar.focus() }
     });
     return menuBar;
@@ -502,6 +528,8 @@ export class View {
   }
 
   private async fill_attributesRegion(nodeId: NodeId) {
+    this._pushToHistory(nodeId);
+    this.fill_referencesRegion(nodeId); // async but don't wait
     type ATT = [string, string];
     const attr: ATT[] = [];
 
@@ -528,6 +556,46 @@ export class View {
     this.attributeList.setItems(makeItems(attr, width) as any);
     this.attributeList.screen.render();
     this.attributeListNodeId = nodeId;
+  }
+
+  private install_referenceList(): blessed.Widgets.ListElement {
+    this.referenceList = blessed.list({
+      parent: this.area1,
+      label: " {bold}{cyan-fg}Reference List{/cyan-fg}{/bold} ",
+      top: 0,
+      tags: true,
+      left: w2 + "+1",
+      width: "60%-1",
+      height: "50%",
+      border: "line",
+      scrollbar: scrollbar,
+      style: { ...style },
+      align: "left",
+      keys: true,
+      hidden: true,
+    });
+    this.area1.append(this.referenceList);
+
+    this.referenceList.on("select", (item: any) => {
+      if (item && (item as any).nodeId) {
+        this._jumpToNode((item as any).nodeId);
+      }
+    });
+
+    return this.referenceList;
+  }
+
+  private async fill_referencesRegion(nodeId: NodeId) {
+    const references = await this.model.browseReferences(nodeId);
+    const items = references.map((ref) => {
+      const dir = ref.isForward ? "->" : "<-";
+      const str = ` ${dir} ${ref.referenceTypeId.toString().split(";").pop()} : ${ref.browseName.toString()} (${ref.nodeId.toString()})`;
+      const item = new (blessed as any).list.item(str);
+      (item as any).nodeId = NodeId.resolveNodeId(ref.nodeId);
+      return item;
+    });
+    this.referenceList.setItems(items as any);
+    this.screen.render();
   }
 
   private install_attributeList(): blessed.Widgets.ListElement {
@@ -684,5 +752,61 @@ export class View {
     if (!treeItem || !treeItem.node) return;
     console.log(" Call Method on ", treeItem.node.nodeId.toString());
     // TODO: Implement method call
+  }
+
+  private _pushToHistory(nodeId: NodeId) {
+    if (this._isPushingToHistory) return;
+    if (this._historyIndex >= 0 && sameNodeId(this._history[this._historyIndex], nodeId)) return;
+
+    // Truncate future history if we were in the middle
+    this._history = this._history.slice(0, this._historyIndex + 1);
+    this._history.push(nodeId);
+    this._historyIndex = this._history.length - 1;
+    if (this._history.length > 50) {
+      this._history.shift();
+      this._historyIndex--;
+    }
+  }
+
+  private async _historyBack() {
+    if (this._historyIndex > 0) {
+      this._historyIndex--;
+      await this._jumpToNode(this._history[this._historyIndex], true);
+    }
+  }
+
+  private async _historyForward() {
+    if (this._historyIndex < this._history.length - 1) {
+      this._historyIndex++;
+      await this._jumpToNode(this._history[this._historyIndex], true);
+    }
+  }
+
+  private async _jumpToNode(nodeId: NodeId, fromHistory = false) {
+    this._isPushingToHistory = true;
+    try {
+      const path = await this.model.findPathToRoot(nodeId);
+      await this.tree.expandPath(path);
+      if (!fromHistory) {
+        this._pushToHistory(nodeId);
+      }
+      await this.fill_attributesRegion(nodeId);
+      await this.fill_referencesRegion(nodeId);
+    } finally {
+      this._isPushingToHistory = false;
+    }
+  }
+
+  private _toggleAttributeReference() {
+    if (this.attributeList.visible) {
+      this.attributeList.hide();
+      this.referenceList.show();
+      this.referenceList.focus();
+    } else {
+      this.referenceList.hide();
+      this.attributeList.show();
+      this.attributeList.focus();
+    }
+    this.screen.render();
   }
 }

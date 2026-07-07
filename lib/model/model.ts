@@ -33,6 +33,7 @@ import {
   ReadValueIdOptions,
   ReferenceDescription,
   resolveNodeId,
+  sameNodeId,
   SecurityPolicy,
   TimestampsToReturn,
   UserIdentityInfo,
@@ -664,6 +665,48 @@ export class Model extends EventEmitter {
     return null;
   }
 
+
+  public async browseReferences(nodeId: NodeId): Promise<ReferenceDescription[]> {
+    if (!this.session) return [];
+    try {
+      const results = await this.session!.browse({
+        nodeId,
+        browseDirection: BrowseDirection.Both,
+        includeSubtypes: true,
+        resultMask: 63,
+      });
+      return results.references || [];
+    } catch (err) {
+      console.log(err);
+      return [];
+    }
+  }
+
+  public async findPathToRoot(nodeId: NodeId): Promise<NodeId[]> {
+    if (!this.session) return [];
+    const path = [nodeId];
+    let current = nodeId;
+    const rootFolderId = resolveNodeId("RootFolder");
+    try {
+      while (!sameNodeId(current, rootFolderId)) {
+        const results = await this.session!.browse({
+          nodeId: current,
+          referenceTypeId: "HierarchicalReferences",
+          browseDirection: BrowseDirection.Inverse,
+          includeSubtypes: true,
+          resultMask: 63,
+        });
+        if (!results.references || results.references.length === 0) break;
+        // Pick the first hierarchical parent
+        current = NodeId.resolveNodeId(results.references[0].nodeId);
+        path.unshift(current);
+        if (path.length > 20) break; // Safety break
+      }
+    } catch (err) {
+      console.log(err);
+    }
+    return path;
+  }
 
   private async getMultiStateStringMaybe(nodeId: NodeId, value: number): Promise<string | null> {
     const cacheKey = nodeId.toString();

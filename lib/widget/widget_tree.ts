@@ -1,5 +1,5 @@
 import chalk from "chalk";
-import { assert } from "node-opcua-client";
+import { assert, NodeId, sameNodeId } from "node-opcua-client";
 import blessed, { Widgets } from "blessed";
 import { TreeItem } from "./tree_item.js";
 
@@ -212,6 +212,68 @@ export class Tree extends (blessed as any).list {
     }
     private getSelectedIndex(): number {
         return (this as any).selected;
+    }
+    async expandPath(nodeIds: NodeId[]): Promise<void> {
+        let currentData = this.__data;
+        for (let i = 0; i < nodeIds.length; i++) {
+            const nodeId = nodeIds[i];
+            if (!sameNodeId(currentData.nodeId, nodeId)) {
+                // Find which child matches nodeId
+                const child = currentData.children?.find((c: any) => sameNodeId(c.nodeId, nodeId));
+                if (child) {
+                    currentData = child;
+                } else {
+                    // Try to expand currentData if it has children function
+                    if (isFunction(currentData.children)) {
+                         await new Promise<void>((resolve, reject) => {
+                             currentData.children.call(this, currentData, (err: Error | null, children: any) => {
+                                 if (err) return reject(err);
+                                 currentData.children = children;
+                                 currentData.expanded = true;
+                                 this.setData(this.__data);
+                                 resolve();
+                             });
+                         });
+                         const childAfter = currentData.children?.find((c: any) => sameNodeId(c.nodeId, nodeId));
+                         if (childAfter) {
+                             currentData = childAfter;
+                         } else {
+                             break;
+                         }
+                    } else {
+                        break;
+                    }
+                }
+            }
+            
+            if (i === nodeIds.length - 1) {
+                // Found target!
+                this.setData(this.__data); // Ensure everything is walked
+                const index = (this as any).items.findIndex((item: any) => sameNodeId(item.node.nodeId, nodeId));
+                if (index >= 0) {
+                    this.select(index);
+                    this.scrollTo(index);
+                }
+                break;
+            }
+
+            if (!currentData.expanded) {
+                 if (isFunction(currentData.children)) {
+                      await new Promise<void>((resolve, reject) => {
+                          currentData.children.call(this, currentData, (err: Error | null, children: any) => {
+                              if (err) return reject(err);
+                              currentData.children = children;
+                              currentData.expanded = true;
+                              this.setData(this.__data);
+                              resolve();
+                          });
+                      });
+                 } else {
+                      currentData.expanded = true;
+                      this.setData(this.__data);
+                 }
+            }
+        }
     }
 }
 
