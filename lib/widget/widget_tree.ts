@@ -117,6 +117,7 @@ export class Tree extends (blessed as any).list {
 
     _add(node: any, isLastChild: boolean, parent: any) {
         node.isLastChild = isLastChild;
+        node.parent = parent;
         const item = this.add(toContent(node, isLastChild, parent, this.showNamespace)) as any;
         item.node = node;
         if (this._old_selectedNode === node) {
@@ -195,11 +196,16 @@ export class Tree extends (blessed as any).list {
 
     collapseSelected() {
         const node = this.getSelectedItem().node;
-        if (!node.expanded) {
-            return;
+        if (node.expanded) {
+            node.expanded = false;
+            this.setData(this.__data);
+        } else if (node.parent) {
+            const parentIndex = this.items.findIndex((item: any) => item.node === node.parent);
+            if (parentIndex >= 0) {
+                this.select(parentIndex);
+                this.screen.render();
+            }
         }
-        node.expanded = false;
-        this.setData(this.__data);
     }
 
     setData(data: any) {

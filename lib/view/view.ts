@@ -67,6 +67,10 @@ export class View {
   public filterForm!: blessed.Widgets.BoxElement;
   public filterInputElement!: blessed.Widgets.TextboxElement;
   public referenceList!: blessed.Widgets.ListElement;
+  public referenceListHelp!: blessed.Widgets.TextElement;
+  public treeHelp!: blessed.Widgets.TextElement;
+  public monitoredItemsHelp!: blessed.Widgets.TextElement;
+  public logWindowHelp!: blessed.Widgets.TextElement;
 
   private _history: NodeId[] = [];
   private _historyIndex = -1;
@@ -142,6 +146,14 @@ export class View {
       } else {
         this.tree.focus();
       }
+    });
+
+    // Global Help Command
+    this.screen.key(["f1", "?"], () => {
+      if (this.screen.focused === this.filterInputElement) {
+        return;
+      }
+      this._showHelpDialog();
     });
 
     // Render the screen.
@@ -319,9 +331,123 @@ export class View {
     return -1;
   }
 
+  private updateTreeHelp(searchActive: boolean = false): void {
+    if (this.treeHelp) {
+      if (searchActive) {
+        this.treeHelp.setContent(" [f] or [/]  {yellow-fg}Cycle:{/yellow-fg} [F3]/[S-F3]");
+      } else {
+        this.treeHelp.setContent(" [↑/↓] Nav  [→/+] Exp  [←/-] Coll  [f] Find  [m] Mon");
+      }
+    }
+  }
+
+  private _showHelpDialog(): void {
+    const previousFocus = this.screen.focused;
+
+    const helpBox = blessed.box({
+      parent: this.screen,
+      top: "center",
+      left: "center",
+      width: 70,
+      height: 22,
+      border: "line",
+      label: " {bold}{cyan-fg}OPC UA Commander Help{/cyan-fg}{/bold} ",
+      tags: true,
+      style: {
+        border: {
+          fg: "cyan",
+        },
+        bg: "black",
+        fg: "white",
+      },
+      keys: true,
+      vi: true,
+      scrollable: true,
+      scrollbar: {
+        ch: " ",
+        track: {
+          bg: "cyan",
+        },
+        style: {
+          inverse: true,
+        },
+      },
+    });
+
+    const helpText = `
+ {bold}{yellow-fg}Global Shortcuts{/yellow-fg}{/bold}
+   {bold}Tab{/bold}       : Cycle Focus Forward
+   {bold}Shift-Tab{/bold} : Cycle Focus Backward
+   {bold}w{/bold}         : Write Value
+   {bold}k{/bold}         : Call Method
+   {bold}s{/bold}         : Show Statistics
+   {bold}a{/bold}         : Toggle Alarms
+   {bold}r{/bold}         : Toggle Reference / Attribute view
+   {bold}[{/bold}         : History Back
+   {bold}]{/bold}         : History Forward
+   {bold}h{/bold}         : Toggle Subtype Mode
+   {bold}q / x{/bold}     : Exit Application
+
+ {bold}{yellow-fg}Tree Explorer{/yellow-fg}{/bold}
+   {bold}↑ / ↓{/bold}     : Navigate Nodes
+   {bold}→ / +{/bold}     : Expand Node
+   {bold}← / -{/bold}     : Collapse Node
+   {bold}f / /{/bold}     : Find / Filter Nodes
+   {bold}m{/bold}         : Monitor Node
+
+ {bold}{yellow-fg}Search Bar (when active){/yellow-fg}{/bold}
+   {bold}F3{/bold}        : Next Search Match
+   {bold}Shift-F3{/bold}  : Previous Search Match
+   {bold}Enter{/bold}     : Apply & Close Search
+   {bold}Escape{/bold}    : Cancel Search
+
+ {bold}{yellow-fg}Monitored Items{/yellow-fg}{/bold}
+   {bold}u{/bold}         : Unmonitor Selected Item
+
+ {bold}{yellow-fg}Info Log Window{/yellow-fg}{/bold}
+   {bold}c{/bold}         : Clear Log
+
+ {bold}{yellow-fg}References Window{/yellow-fg}{/bold}
+   {bold}f{/bold}         : Show Forward References
+   {bold}b{/bold}         : Show Backward References
+   {bold}a{/bold}         : Show All References
+
+ {yellow-fg}Press [Escape], [Enter], or [Space] to close this help window.{/yellow-fg}
+`;
+
+    const contentBox = blessed.box({
+      parent: helpBox,
+      top: 0,
+      left: 1,
+      width: "100%-4",
+      height: "100%-2",
+      content: helpText,
+      tags: true,
+      scrollable: true,
+      keys: true,
+      vi: true,
+    });
+
+    const closeHelp = () => {
+      helpBox.destroy();
+      if (previousFocus) {
+        previousFocus.focus();
+      }
+      this.screen.render();
+    };
+
+    helpBox.key(["escape", "enter", "space"], closeHelp);
+    contentBox.key(["escape", "enter", "space"], closeHelp);
+
+    this.screen.append(helpBox);
+    helpBox.focus();
+    this.screen.render();
+  }
+
   private activateSearch(): void {
     this.filterForm.show();
     this.area1.append(this.filterForm);
+    this.updateTreeHelp(true);
     this.filterInputElement.focus();
     this.screen.render();
   }
@@ -392,19 +518,24 @@ export class View {
     });
 
     this.filterInputElement.key(["escape"], () => {
-      this.filterForm.hide();
       this.tree.focus();
-      this.screen.render();
     });
 
     this.filterInputElement.key(["enter"], () => {
-      this.filterForm.hide();
       this.tree.focus();
+    });
+
+    this.filterInputElement.on("blur", () => {
+      this.filterForm.hide();
+      this.updateTreeHelp(false);
       this.screen.render();
     });
 
     // Bind F3 globally on the screen to find next match
     this.screen.key(["f3"], () => {
+      if (this.screen.focused !== this.tree && this.screen.focused !== this.filterInputElement) {
+        return;
+      }
       const query = this.filterInputElement.getValue().trim();
       if (query) {
         this.performSearch(query, this.tree.getSelectedIndex() + 1, "down");
@@ -413,6 +544,9 @@ export class View {
 
     // Bind Shift-F3 globally on the screen to find previous match
     this.screen.key(["S-f3"], () => {
+      if (this.screen.focused !== this.tree && this.screen.focused !== this.filterInputElement) {
+        return;
+      }
       const query = this.filterInputElement.getValue().trim();
       if (query) {
         this.performSearch(query, this.tree.getSelectedIndex() - 1, "up");
@@ -444,7 +578,34 @@ export class View {
     });
     this.area1.append(this.monitoredItemsList);
 
-    // binding .....
+    this.monitoredItemsHelp = blessed.text({
+      parent: this.area1,
+      top: "100%-1",
+      left: w2 + "+2",
+      width: "60%-3",
+      height: 1,
+      tags: true,
+      content: " {yellow-fg}Actions:{/yellow-fg} [u] Unmonitor",
+      style: {
+        bg: "black",
+        fg: "white",
+      },
+      hidden: true,
+    });
+    this.area1.append(this.monitoredItemsHelp);
+
+    this.monitoredItemsList.on("focus", () => {
+      this.monitoredItemsHelp.show();
+      this.screen.render();
+    });
+    this.monitoredItemsList.on("blur", () => {
+      this.monitoredItemsHelp.hide();
+      this.screen.render();
+    });
+
+    this.monitoredItemsList.key(["u"], () => {
+      this._onUnmonitoredSelectedItem();
+    });
 
     this.model.on("monitoredItemListUpdated", (monitoredItemsListData: any) => {
       if (monitoredItemsListData.length > 0) {
@@ -492,6 +653,37 @@ export class View {
     });
 
     this.area2.append(logWindow);
+
+    this.logWindowHelp = blessed.text({
+      parent: this.area2,
+      top: "100%-3",
+      left: 2,
+      width: "100%-4",
+      height: 1,
+      tags: true,
+      content: " {yellow-fg}Actions:{/yellow-fg} [c] Clear",
+      style: {
+        bg: "black",
+        fg: "white",
+      },
+      hidden: true,
+    });
+    this.area2.append(this.logWindowHelp);
+
+    logWindow.on("focus", () => {
+      this.logWindowHelp.show();
+      this.screen.render();
+    });
+    logWindow.on("blur", () => {
+      this.logWindowHelp.hide();
+      this.screen.render();
+    });
+
+    logWindow.key(["c"], () => {
+      logWindow.clearItems();
+      logWindow.screen.render();
+    });
+
     return logWindow;
   }
 
@@ -520,10 +712,9 @@ export class View {
     this.area2.append(menuBar);
 
     (menuBar as any).setItems({
-      Monitor: {
-        //xx prefix: "M",
-        keys: ["m"],
-        callback: () => this._onMonitoredSelectedItem(),
+      Help: {
+        keys: ["?", "f1"],
+        callback: () => this._showHelpDialog(),
       },
       Write: {
         keys: ["w"],
@@ -533,25 +724,17 @@ export class View {
         keys: ["q", "x"], //["C-c", "escape"],
         callback: () => this._onExit(),
       },
-
-      Clear: {
-        keys: ["c"],
-        callback: () => {
-          this.logWindow.clearItems();
-          this.logWindow.screen.render();
-        },
-      },
-      Unmonitor: {
-        keys: ["u"],
-        callback: () => this._onUnmonitoredSelectedItem(),
-      },
       Stat: {
         keys: ["s"],
         callback: () => this._onDumpStatistics(),
       },
       Alarm: {
         keys: ["a"],
-        callback: this._onToggleAlarmWindows.bind(this),
+        callback: () => {
+          if (this.screen.focused !== this.referenceList) {
+            this._onToggleAlarmWindows();
+          }
+        },
       },
       Call: {
         keys: ["k"],
@@ -576,11 +759,6 @@ export class View {
           this.populateTree();
         },
       },
-      Filter: {
-        keys: ["f", "/"],
-        callback: () => this.activateSearch(),
-      },
-      //  "Menu": { keys: ["A-a", "x"], callback: () => this.menuBar.focus() }
     });
     return menuBar;
   }
@@ -626,6 +804,39 @@ export class View {
     });
 
     this.area1.append(this.tree);
+
+    this.treeHelp = blessed.text({
+      parent: this.area1,
+      top: "100%-1",
+      left: 1,
+      width: "40%-2",
+      height: 1,
+      tags: true,
+      content: "",
+      style: {
+        bg: "black",
+        fg: "white",
+      },
+      hidden: false,
+    });
+    this.area1.append(this.treeHelp);
+    this.updateTreeHelp(false);
+
+    this.tree.on("focus", () => {
+      this.treeHelp.show();
+      this.screen.render();
+    });
+    this.tree.on("blur", () => {
+      if (this.filterForm && !this.filterForm.hidden) {
+        return;
+      }
+      this.treeHelp.hide();
+      this.screen.render();
+    });
+
+    this.tree.key(["m"], () => {
+      this._onMonitoredSelectedItem();
+    });
 
     this.populateTree();
     this.tree.focus();
@@ -715,6 +926,31 @@ export class View {
     });
     this.area1.append(this.referenceList);
 
+    this.referenceListHelp = blessed.text({
+      parent: this.area1,
+      top: "50%-1",
+      left: w2 + "+2",
+      width: "60%-3",
+      height: 1,
+      tags: true,
+      content: " {yellow-fg}Filter:{/yellow-fg} [f] Forward  [b] Backward  [a] All",
+      style: {
+        bg: "black",
+        fg: "white",
+      },
+      hidden: true,
+    });
+    this.area1.append(this.referenceListHelp);
+
+    this.referenceList.on("focus", () => {
+      this.referenceListHelp.show();
+      this.screen.render();
+    });
+    this.referenceList.on("blur", () => {
+      this.referenceListHelp.hide();
+      this.screen.render();
+    });
+
     this.referenceList.on("select", (item: any, index: number) => {
       const nodeIds = (this.referenceList as any)._nodeIds;
       if (nodeIds && nodeIds[index]) {
@@ -757,23 +993,37 @@ export class View {
         references = references.filter(r => !r.isForward);
     }
 
-    (this.referenceList as any)._nodeIds = references.map((ref) => NodeId.resolveNodeId(ref.nodeId));
-    
     const blessedColors = [
         "white", "cyan", "green", "yellow", "magenta", "blue", "red",
         "light-cyan", "light-green", "light-yellow", "light-magenta", "light-blue", "light-red"
     ];
 
-    const items = await Promise.all(references.map(async (ref) => {
-      const dir = ref.isForward ? "->" : "<-";
-      const ns = ref.nodeId.namespace;
-      const color = blessedColors[ns % blessedColors.length];
-      const browseName = `{${color}-fg}${ref.browseName.toString()}{/${color}-fg}`;
-      const nodeIdStr = chalk.grey(`(${ref.nodeId.toString()})`);
+    const enrichedReferences = await Promise.all(references.map(async (ref) => {
+      const direc = ref.isForward ? "->" : "<-";
       const refTypeNodeId = NodeId.resolveNodeId(ref.referenceTypeId);
       const refTypeName = await this.model.getBrowseNameMaybe(refTypeNodeId);
-      return ` ${dir} ${refTypeName} : ${browseName} ${nodeIdStr}`;
+      const target = ref.browseName.toString();
+      return { ref, direc, refTypeName, target };
     }));
+
+    enrichedReferences.sort((a, b) => {
+      const cmpDirec = a.direc.localeCompare(b.direc);
+      if (cmpDirec !== 0) return cmpDirec;
+      const cmpRefType = a.refTypeName.localeCompare(b.refTypeName);
+      if (cmpRefType !== 0) return cmpRefType;
+      return a.target.localeCompare(b.target);
+    });
+
+    (this.referenceList as any)._nodeIds = enrichedReferences.map((item) => NodeId.resolveNodeId(item.ref.nodeId));
+
+    const items = enrichedReferences.map((item) => {
+      const ref = item.ref;
+      const ns = ref.nodeId.namespace;
+      const color = blessedColors[ns % blessedColors.length];
+      const browseName = `{${color}-fg}${item.target}{/${color}-fg}`;
+      const nodeIdStr = chalk.grey(`(${ref.nodeId.toString()})`);
+      return ` ${item.direc} ${item.refTypeName} : ${browseName} ${nodeIdStr}`;
+    });
     
     const filterLabel = this._referenceFilter.toUpperCase();
     this.referenceList.setLabel(` {bold}{cyan-fg}References [${filterLabel}]{/cyan-fg}{/bold} `);
@@ -984,9 +1234,11 @@ export class View {
     if (this.attributeList.visible) {
       this.attributeList.hide();
       this.referenceList.show();
+      this.referenceListHelp.show();
       this.referenceList.focus();
     } else {
       this.referenceList.hide();
+      this.referenceListHelp.hide();
       this.attributeList.show();
       this.attributeList.focus();
     }
