@@ -593,13 +593,13 @@ export class View {
     this.screen.render();
   }
 
-  private _onMonitoredSelectedItem() {
+  private async _onMonitoredSelectedItem() {
     const treeItem = this.tree.getSelectedItem();
     if (treeItem.node.monitoredItem) {
       console.log(" Already monitoring ", treeItem.node.nodeId.toString());
       return;
     }
-    this.model.monitor_item(treeItem);
+    await this.model.monitor_item(treeItem);
   }
   private async _onWriteSelectedItem() {
     this.writeForm.show();

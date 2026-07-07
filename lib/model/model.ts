@@ -175,11 +175,16 @@ export class Model extends EventEmitter {
   private endpointUrl: string = "";
   private monitoredItemsListData: any[] = [];
   private clientAlarms: ClientAlarmList = new ClientAlarmList();
+  private enumDefinitionCache: Map<string, Map<number, string> | null> = new Map();
 
   public data: any;
   public constructor() {
     super();
     this.data = data;
+  }
+
+  public clearCache() {
+    this.enumDefinitionCache.clear();
   }
 
   public async initialize(
@@ -233,6 +238,7 @@ export class Model extends EventEmitter {
 
     (this.client as any).on("start_reconnection", () => {
       console.log(red(" !!!!!!!!!!!!!!!!!!!!!!!!  Starting reconnection !!!!!!!!!!!!!!!!!!! " + this.endpointUrl));
+      this.clearCache();
     });
 
     (this.client as any).on("connection_reestablished", () => {
@@ -305,6 +311,7 @@ export class Model extends EventEmitter {
     }
     this.session.on("session_closed", () => {
       console.log(" Warning => Session closed");
+      this.clearCache();
     });
     this.session.on("keepalive", () => {
       console.log("session keepalive");
@@ -443,9 +450,24 @@ export class Model extends EventEmitter {
     return null;
   }
 
-  public monitor_item(treeItem: TreeItem) {
-    if (!this.subscription) return;
+  public async monitor_item(treeItem: TreeItem) {
+    if (!this.subscription || !this.session) return;
     const node = treeItem.node;
+
+    // Fetch DataType if not already present on the node
+    if (!node.dataTypeNodeId) {
+      try {
+        const dataValue = await this.session.read({
+          nodeId: node.nodeId,
+          attributeId: AttributeIds.DataType
+        });
+        if (dataValue.statusCode === StatusCodes.Good) {
+          node.dataTypeNodeId = dataValue.value.value;
+        }
+      } catch (err) {
+        // ignore
+      }
+    }
 
     this.subscription.monitor(
       {
@@ -475,12 +497,20 @@ export class Model extends EventEmitter {
         this.emit("monitoredItemListUpdated", this.monitoredItemsListData);
         //   xxx                monitoredItemsList.setRows(monitoredItemsListData);
 
-        monitoredItem.on("changed", (dataValue: DataValue) => {
+        monitoredItem.on("changed", async (dataValue: DataValue) => {
           console.log(" value ", node.browseName, node.nodeId.toString(), " changed to ", green(dataValue.value.toString()));
-          if (dataValue.value.value.toFixed) {
+          
+          let enumStr: string | null = null;
+          if (node.dataTypeNodeId && dataValue.value && typeof dataValue.value.value === "number") {
+             enumStr = await this.getEnumerationMaybe(node.dataTypeNodeId, dataValue.value.value);
+          }
+
+          if (enumStr) {
+             node.valueAsString = w(enumStr, 16, " ");
+          } else if (dataValue.value && dataValue.value.value !== null && dataValue.value.value.toFixed && typeof dataValue.value.value === "number") {
             node.valueAsString = w(dataValue.value.value.toFixed(3), 16, " ");
           } else {
-            node.valueAsString = w(dataValue.value.value.toString(), 16, " ");
+            node.valueAsString = w(dataValue.value ? dataValue.value.value.toString() : "null", 16, " ");
           }
           monitoredItemData[2] = node.valueAsString;
 
@@ -531,8 +561,19 @@ export class Model extends EventEmitter {
     dataTypeNodeId: NodeId,
     value: number
   ): Promise<string | null> {
+    const key = dataTypeNodeId.toString();
 
-    // Fast path: check standard factory for known enumerations (ns=0)
+    // 1. Check Cache first
+    if (this.enumDefinitionCache.has(key)) {
+      const map = this.enumDefinitionCache.get(key);
+      if (map) {
+        return map.get(value) ?? null;
+      }
+      // if map is null, it means we already tried and it's not an enum or failed
+      return null;
+    }
+
+    // 2. Fast path: check standard factory for known enumerations (ns=0)
     if (dataTypeNodeId.namespace === 0) {
       const enumName = DataTypeIdsToString[dataTypeNodeId.value.toString()];
       if (enumName) {
@@ -547,7 +588,7 @@ export class Model extends EventEmitter {
       }
     }
 
-    // Server path: browse the DataType node for EnumStrings or EnumValues
+    // 3. Server path: browse the DataType node for EnumStrings or EnumValues
     if (!this.session) return null;
 
     try {
@@ -559,7 +600,12 @@ export class Model extends EventEmitter {
         resultMask: 0x3f,
       });
 
-      if (!browseResult.references) return null;
+      if (!browseResult.references || browseResult.references.length === 0) {
+        this.enumDefinitionCache.set(key, null);
+        return null;
+      }
+
+      let enumMap: Map<number, string> | null = null;
 
       for (const ref of browseResult.references) {
         const name = ref.browseName.name;
@@ -571,11 +617,13 @@ export class Model extends EventEmitter {
             attributeId: AttributeIds.Value,
           });
           if (dv.value?.value && Array.isArray(dv.value.value)) {
+            enumMap = new Map();
             const strings = dv.value.value;
-            if (value >= 0 && value < strings.length) {
-              const lt = strings[value];
-              return lt.text ?? lt.toString();
+            for (let i = 0; i < strings.length; i++) {
+              const lt = strings[i];
+              enumMap.set(i, lt.text ?? lt.toString());
             }
+            break;
           }
         }
 
@@ -586,22 +634,28 @@ export class Model extends EventEmitter {
             attributeId: AttributeIds.Value,
           });
           if (dv.value?.value && Array.isArray(dv.value.value)) {
+            enumMap = new Map();
             for (const ev of dv.value.value) {
-              // Int64 can be represented as [low, high] array
               const evValue = Array.isArray(ev.value) ? ev.value[1] : ev.value;
-              if (evValue === value) {
-                return ev.displayName?.text ?? ev.displayName?.toString();
-              }
+              enumMap.set(Number(evValue), ev.displayName?.text ?? ev.displayName?.toString());
             }
+            break;
           }
         }
       }
-    } catch {
-      // Not an enumeration or browse failed — silently ignore
+
+      this.enumDefinitionCache.set(key, enumMap);
+      if (enumMap) {
+        return enumMap.get(value) ?? null;
+      }
+
+    } catch (err) {
+      // ignore
     }
 
     return null;
   }
+
 
   public async readNodeAttributes(nodeId: NodeId): Promise<{ attribute: string, text: string }[]> {
     if (!this.session) {
@@ -775,17 +829,28 @@ function dataValueToString(dataValue: DataValue, resolvedEnumString?: string | n
     }
   }
 
-  const parts = [s];
-  if (dataValue.statusCode && dataValue.statusCode !== StatusCodes.Good) {
-    parts.push("(" + dataValue.statusCode.toString() + ")");
-  }
+  const lines = [s];
+  
+  const statusStr = dataValue.statusCode ? dataValue.statusCode.toString() : "Good";
+  lines.push("status: " + statusStr);
+
   if (dataValue.sourceTimestamp && dataValue.sourceTimestamp.getTime() !== 0) {
-    parts.push("src:" + dataValue.sourceTimestamp.toISOString());
+    let src = "src:    " + dataValue.sourceTimestamp.toISOString();
+    if (dataValue.sourcePicoseconds !== undefined && dataValue.sourcePicoseconds !== 0) {
+      src += " ns:" + dataValue.sourcePicoseconds;
+    }
+    lines.push(src);
   }
+
   if (dataValue.serverTimestamp && dataValue.serverTimestamp.getTime() !== 0) {
-    parts.push("srv:" + dataValue.serverTimestamp.toISOString());
+    let srv = "srv:    " + dataValue.serverTimestamp.toISOString();
+    if (dataValue.serverPicoseconds !== undefined && dataValue.serverPicoseconds !== 0) {
+      srv += " ns:" + dataValue.serverPicoseconds;
+    }
+    lines.push(srv);
   }
-  return parts.join(" ");
+  
+  return lines.join("\n");
 }
 
 function toString1(attribute: AttributeIds, dataValue: DataValue | null, dataTypeNodeId?: NodeId | null, resolvedEnumString?: string | null) {
