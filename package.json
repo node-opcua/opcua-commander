@@ -44,16 +44,15 @@
     "chalk": "4.1.2",
     "check-node-version": "4.2.1",
     "cli-truncate": "2.1.0",
+    "commander": "^15.0.0",
     "node-opcua-certificate-manager": "^2.174.0",
     "node-opcua-client": "^2.174.0",
     "node-opcua-pki": "^6.18.0",
-    "wordwrap": "^1.0.0",
-    "yargs": "17.5.1"
+    "wordwrap": "^1.0.0"
   },
   "devDependencies": {
     "@types/blessed": "^0.1.27",
     "@types/wordwrap": "^1.0.3",
-    "@types/yargs": "^17.0.35",
     "es-abstract": "^1.24.2",
     "source-map-support": "^0.5.21",
     "typescript": "^6.0.3"
