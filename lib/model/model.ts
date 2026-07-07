@@ -43,6 +43,7 @@ import {
 import { OPCUACertificateManager } from "node-opcua-certificate-manager";
 import { StatusCodes } from "node-opcua-status-code";
 import { findBasicDataType } from "node-opcua-pseudo-session";
+import { getStandardDataTypeFactory } from "node-opcua-factory";
 
 import { w } from "../utils/utils.js";
 import { extractBrowsePath } from "../utils/extract_browse_path.js";
@@ -520,6 +521,88 @@ export class Model extends EventEmitter {
     });
   }
 
+  /**
+   * Attempts to resolve a numeric value to its enumeration string.
+   * Checks if the DataType NodeId is a subtype of Enumeration by:
+   * 1. Fast path: looking up standard enumerations in the factory
+   * 2. Server path: browsing the DataType node for EnumStrings or EnumValues properties
+   */
+  public async getEnumerationMaybe(
+    dataTypeNodeId: NodeId,
+    value: number
+  ): Promise<string | null> {
+
+    // Fast path: check standard factory for known enumerations (ns=0)
+    if (dataTypeNodeId.namespace === 0) {
+      const enumName = DataTypeIdsToString[dataTypeNodeId.value.toString()];
+      if (enumName) {
+        const factory = getStandardDataTypeFactory();
+        if (factory.hasEnumeration(enumName)) {
+          const enumeration = factory.getEnumeration(enumName);
+          if (enumeration) {
+            const item = enumeration.typedEnum.get(value);
+            if (item) return item.key;
+          }
+        }
+      }
+    }
+
+    // Server path: browse the DataType node for EnumStrings or EnumValues
+    if (!this.session) return null;
+
+    try {
+      const browseResult = await this.session.browse({
+        nodeId: dataTypeNodeId,
+        referenceTypeId: "HasProperty",
+        includeSubtypes: true,
+        browseDirection: BrowseDirection.Forward,
+        resultMask: 0x3f,
+      });
+
+      if (!browseResult.references) return null;
+
+      for (const ref of browseResult.references) {
+        const name = ref.browseName.name;
+
+        if (name === "EnumStrings") {
+          // EnumStrings: array of LocalizedText indexed by enum value
+          const dv = await this.session!.read({
+            nodeId: ref.nodeId,
+            attributeId: AttributeIds.Value,
+          });
+          if (dv.value?.value && Array.isArray(dv.value.value)) {
+            const strings = dv.value.value;
+            if (value >= 0 && value < strings.length) {
+              const lt = strings[value];
+              return lt.text ?? lt.toString();
+            }
+          }
+        }
+
+        if (name === "EnumValues") {
+          // EnumValues: array of EnumValueType { value: Int64, displayName: LocalizedText }
+          const dv = await this.session!.read({
+            nodeId: ref.nodeId,
+            attributeId: AttributeIds.Value,
+          });
+          if (dv.value?.value && Array.isArray(dv.value.value)) {
+            for (const ev of dv.value.value) {
+              // Int64 can be represented as [low, high] array
+              const evValue = Array.isArray(ev.value) ? ev.value[1] : ev.value;
+              if (evValue === value) {
+                return ev.displayName?.text ?? ev.displayName?.toString();
+              }
+            }
+          }
+        }
+      }
+    } catch {
+      // Not an enumeration or browse failed — silently ignore
+    }
+
+    return null;
+  }
+
   public async readNodeAttributes(nodeId: NodeId): Promise<{ attribute: string, text: string }[]> {
     if (!this.session) {
       return [];
@@ -534,6 +617,24 @@ export class Model extends EventEmitter {
       const dataValues = await this.session!.read(nodesToRead);
       const results: { attribute: string, text: string }[] = [];
 
+      let dataTypeNodeId: NodeId | null = null;
+      const dataTypeIdx = nodesToRead.findIndex(n => n.attributeId === AttributeIds.DataType);
+      if (dataTypeIdx >= 0 && dataValues[dataTypeIdx].statusCode === StatusCodes.Good) {
+        dataTypeNodeId = dataValues[dataTypeIdx].value.value;
+      }
+
+      // Pre-resolve enumeration string for the Value attribute
+      let resolvedEnumString: string | null = null;
+      if (dataTypeNodeId) {
+        const valueAttrIdx = nodesToRead.findIndex(n => n.attributeId === AttributeIds.Value);
+        if (valueAttrIdx >= 0 && dataValues[valueAttrIdx].statusCode === StatusCodes.Good) {
+          const v = dataValues[valueAttrIdx].value?.value;
+          if (typeof v === "number") {
+            resolvedEnumString = await this.getEnumerationMaybe(dataTypeNodeId, v);
+          }
+        }
+      }
+
       for (let i = 0; i < nodesToRead.length; i++) {
         const nodeToRead = nodesToRead[i];
         const dataValue = dataValues[i];
@@ -541,7 +642,8 @@ export class Model extends EventEmitter {
         if (dataValue.statusCode !== StatusCodes.Good) {
           continue;
         }
-        const s = toString1(nodeToRead.attributeId!, dataValue);
+        const enumStr = (nodeToRead.attributeId === AttributeIds.Value) ? resolvedEnumString : null;
+        const s = toString1(nodeToRead.attributeId!, dataValue, dataTypeNodeId, enumStr);
         results.push({
           attribute: attributeIdToString[nodeToRead.attributeId!],
           text: s,
@@ -650,21 +752,43 @@ function invert<T extends { toString(): string }>(o: Record<string, T>) {
 const attributeIdToString = invert(AttributeIds);
 const DataTypeIdsToString = invert(DataTypeIds);
 
-function dataValueToString(dataValue: DataValue) {
+function dataValueToString(dataValue: DataValue, resolvedEnumString?: string | null) {
+  let s = "";
   if (!dataValue.value || dataValue.value.value === null) {
-    return "<???> : " + dataValue.statusCode.toString();
+    s = "<???>";
+  } else {
+    const value = dataValue.value.value;
+    switch (dataValue.value.arrayType) {
+      case VariantArrayType.Scalar:
+        if (resolvedEnumString) {
+          s = resolvedEnumString + " (" + value + ")";
+        } else {
+          s = dataValue.value.toString();
+        }
+        break;
+      case VariantArrayType.Array:
+        s = dataValue.value.toString();
+        break;
+      default:
+        s = "";
+        break;
+    }
   }
-  switch (dataValue.value.arrayType) {
-    case VariantArrayType.Scalar:
-      return dataValue.toString();
-    case VariantArrayType.Array:
-      return dataValue.toString();
-    default:
-      return "";
+
+  const parts = [s];
+  if (dataValue.statusCode && dataValue.statusCode !== StatusCodes.Good) {
+    parts.push("(" + dataValue.statusCode.toString() + ")");
   }
+  if (dataValue.sourceTimestamp && dataValue.sourceTimestamp.getTime() !== 0) {
+    parts.push("src:" + dataValue.sourceTimestamp.toISOString());
+  }
+  if (dataValue.serverTimestamp && dataValue.serverTimestamp.getTime() !== 0) {
+    parts.push("srv:" + dataValue.serverTimestamp.toISOString());
+  }
+  return parts.join(" ");
 }
 
-function toString1(attribute: AttributeIds, dataValue: DataValue | null) {
+function toString1(attribute: AttributeIds, dataValue: DataValue | null, dataTypeNodeId?: NodeId | null, resolvedEnumString?: string | null) {
   if (!dataValue || !dataValue.value || !dataValue.value.hasOwnProperty("value")) {
     return "<null>";
   }
@@ -703,6 +827,7 @@ function toString1(attribute: AttributeIds, dataValue: DataValue | null) {
       }
       return accessLevelFlagToString(value) + " (" + value + ")";
     default:
-      return dataValueToString(dataValue);
+      return dataValueToString(dataValue, resolvedEnumString);
   }
 }
+
