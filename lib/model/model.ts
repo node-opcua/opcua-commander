@@ -185,6 +185,7 @@ export class Model extends EventEmitter {
 
   public data: any;
   public showNamespace = false;
+  public subtypeMode = false;
   public constructor() {
     super();
     this.data = data;
@@ -708,6 +709,28 @@ export class Model extends EventEmitter {
     return path;
   }
 
+  public async getBrowseNameMaybe(nodeId: NodeId): Promise<string> {
+    const key = nodeId.toString();
+    if (this.typeNameCache.has(key)) {
+      return this.typeNameCache.get(key)!;
+    }
+    if (!this.session) return key;
+    try {
+      const dv = await this.session.read({
+        nodeId,
+        attributeId: AttributeIds.BrowseName,
+      });
+      if (dv.statusCode === StatusCodes.Good) {
+        const name = dv.value.value.name || dv.value.value.toString();
+        this.typeNameCache.set(key, name);
+        return name;
+      }
+    } catch (err) {
+      // ignore
+    }
+    return key;
+  }
+
   private async getMultiStateStringMaybe(nodeId: NodeId, value: number): Promise<string | null> {
     const cacheKey = nodeId.toString();
     if (this.multiStateCache.has(cacheKey)) {
@@ -825,7 +848,7 @@ export class Model extends EventEmitter {
     }
   }
 
-  public async expand_opcua_node(node: any): Promise<NodeChild[]> {
+public async expand_opcua_node(node: any): Promise<NodeChild[]> {
     if (!this.session) {
       throw new Error("No Session yet");
     }
@@ -835,75 +858,62 @@ export class Model extends EventEmitter {
 
     const children: NodeChild[] = [];
 
-    const nodesToBrowse = [
-      {
-        nodeId: node.nodeId,
-        referenceTypeId: "Organizes",
-        includeSubtypes: true,
-        browseDirection: BrowseDirection.Forward,
-        resultMask: 0x3f,
-      },
-      {
-        nodeId: node.nodeId,
-        referenceTypeId: "Aggregates",
-        includeSubtypes: true,
-        browseDirection: BrowseDirection.Forward,
-        resultMask: 0x3f,
-      },
-      {
-        nodeId: node.nodeId,
-        referenceTypeId: "HasSubtype",
-        includeSubtypes: true,
-        browseDirection: BrowseDirection.Forward,
-        resultMask: 0x3f,
-      },
-    ];
+    let nodesToBrowse;
+    if (this.subtypeMode) {
+        nodesToBrowse = [
+            {
+                nodeId: node.nodeId,
+                referenceTypeId: "HasSubtype",
+                includeSubtypes: true,
+                browseDirection: BrowseDirection.Forward,
+                resultMask: 0x3f,
+            }
+        ];
+    } else {
+        nodesToBrowse = [
+            {
+                nodeId: node.nodeId,
+                referenceTypeId: "Organizes",
+                includeSubtypes: true,
+                browseDirection: BrowseDirection.Forward,
+                resultMask: 0x3f,
+            },
+            {
+                nodeId: node.nodeId,
+                referenceTypeId: "Aggregates",
+                includeSubtypes: true,
+                browseDirection: BrowseDirection.Forward,
+                resultMask: 0x3f,
+            },
+            {
+                nodeId: node.nodeId,
+                referenceTypeId: "HasSubtype",
+                includeSubtypes: true,
+                browseDirection: BrowseDirection.Forward,
+                resultMask: 0x3f,
+            },
+        ];
+    }
 
     try {
       const results = await browseAll(this.session, nodesToBrowse);
 
-      // organized
-      let result = results[0];
+      const seenNodes: Set<string> = new Set();
+      for (const result of results) {
+        if (result.references) {
+          for (const ref of result.references) {
+            const nodeIdStr = ref.nodeId.toString();
+            if (seenNodes.has(nodeIdStr)) continue;
+            seenNodes.add(nodeIdStr);
 
-      if (result.references) {
-        for (let i = 0; i < result.references.length; i++) {
-          const ref = result.references[i];
-
-          children.push({
-            arrow: referenceToSymbol(ref) + symbol(ref)[0],
-            displayName: ref.displayName.text || ref.browseName.toString(),
-            nodeId: ref.nodeId,
-            nodeClass: ref.nodeClass as number,
-            typeDefinition: ref.typeDefinition,
-          });
-        }
-      }
-      // Aggregates
-      result = results[1];
-      if (result.references) {
-        for (let i = 0; i < result.references.length; i++) {
-          const ref = result.references[i];
-          children.push({
-            arrow: referenceToSymbol(ref) + symbol(ref)[0],
-            displayName: ref.displayName.text || ref.browseName.toString(),
-            nodeId: ref.nodeId,
-            nodeClass: ref.nodeClass as number,
-            typeDefinition: ref.typeDefinition,
-          });
-        }
-      }
-      // HasSubType
-      result = results[2];
-      if (result.references) {
-        for (let i = 0; i < result.references.length; i++) {
-          const ref = result.references[i];
-          children.push({
-            arrow: referenceToSymbol(ref) + symbol(ref)[0],
-            displayName: ref.displayName.text || ref.browseName.toString(),
-            nodeId: ref.nodeId,
-            nodeClass: ref.nodeClass as number,
-            typeDefinition: ref.typeDefinition,
-          });
+            children.push({
+              arrow: referenceToSymbol(ref) + symbol(ref)[0],
+              displayName: ref.displayName.text || ref.browseName.toString(),
+              nodeId: ref.nodeId,
+              nodeClass: ref.nodeClass as number,
+              typeDefinition: ref.typeDefinition,
+            });
+          }
         }
       }
 

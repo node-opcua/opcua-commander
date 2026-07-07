@@ -442,6 +442,13 @@ export class View {
         keys: ["]"],
         callback: () => this._historyForward(),
       },
+      Subtype: {
+        keys: ["h"],
+        callback: () => {
+          this.model.subtypeMode = !this.model.subtypeMode;
+          this.populateTree();
+        },
+      },
       //  "Menu": { keys: ["A-a", "x"], callback: () => this.menuBar.focus() }
     });
     return menuBar;
@@ -626,15 +633,16 @@ export class View {
         "light-cyan", "light-green", "light-yellow", "light-magenta", "light-blue", "light-red"
     ];
 
-    const items = references.map((ref) => {
+    const items = await Promise.all(references.map(async (ref) => {
       const dir = ref.isForward ? "->" : "<-";
       const ns = ref.nodeId.namespace;
       const color = blessedColors[ns % blessedColors.length];
       const browseName = `{${color}-fg}${ref.browseName.toString()}{/${color}-fg}`;
       const nodeIdStr = chalk.grey(`(${ref.nodeId.toString()})`);
-      const refType = ref.referenceTypeId.toString().split(";").pop();
-      return ` ${dir} ${refType} : ${browseName} ${nodeIdStr}`;
-    });
+      const refTypeNodeId = NodeId.resolveNodeId(ref.referenceTypeId);
+      const refTypeName = await this.model.getBrowseNameMaybe(refTypeNodeId);
+      return ` ${dir} ${refTypeName} : ${browseName} ${nodeIdStr}`;
+    }));
     
     const filterLabel = this._referenceFilter.toUpperCase();
     this.referenceList.setLabel(` {bold}{cyan-fg}References [${filterLabel}]{/cyan-fg}{/bold} `);
