@@ -14,7 +14,7 @@
   ],
   "scripts": {
     "build": "tsc -b && npm run bundle",
-    "bundle": "npx -y esbuild --bundle --outfile=bin/bundle.js --format=esm --external:blessed  --external:chalk --external:wrap-ansi --external:proper-lockfile --minify-syntax --sourcemap --platform=node --banner:js=\"import { createRequire } from 'module'; import { fileURLToPath } from 'url'; import { dirname } from 'path'; const require = createRequire(import.meta.url); const __filename = fileURLToPath(import.meta.url); const __dirname = dirname(__filename);\" lib/index.ts",
+    "bundle": "npx -y esbuild --bundle --outfile=bin/bundle.js --format=esm --external:blessed  --external:chalk --external:wrap-ansi --external:proper-lockfile --external:node-opcua-crypto --minify-syntax --sourcemap --platform=node --banner:js=\"import { createRequire } from 'module'; import { fileURLToPath } from 'url'; import { dirname } from 'path'; const require = createRequire(import.meta.url); const __filename = fileURLToPath(import.meta.url); const __dirname = dirname(__filename);\" lib/index.ts",
     "release": "npm run build && npm run bundle && npx release-it",
     "test": "echo \"Error: no test specified\" && exit 1",
     "ncu": "npx npm-check-updates -u -x chalk,yargs,env-paths,update-notifier,camel-case,cli-truncate",
@@ -55,6 +55,7 @@
     "@types/blessed": "^0.1.27",
     "@types/wordwrap": "^1.0.3",
     "es-abstract": "^1.24.2",
+    "node-opcua": "^2.174.0",
     "source-map-support": "^0.5.21",
     "typescript": "^6.0.3"
   }
