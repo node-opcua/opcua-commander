@@ -64,6 +64,8 @@ export class View {
   public tree!: Tree;
   public writeForm!: blessed.Widgets.BoxElement;
   public valuesToWriteElement!: blessed.Widgets.TextboxElement;
+  public filterForm!: blessed.Widgets.BoxElement;
+  public filterInputElement!: blessed.Widgets.TextboxElement;
   public referenceList!: blessed.Widgets.ListElement;
 
   private _history: NodeId[] = [];
@@ -105,9 +107,10 @@ export class View {
     this.referenceList = this.install_referenceList();
     this.install_monitoredItemsWindow();
     this.install_writeFormWindow();
+    this.tree = this.install_address_space_explorer();
+    this.install_filterFormWindow();
     this.logWindow = this.install_logWindow();
     this.menuBar = this.install_mainMenu();
-    this.tree = this.install_address_space_explorer();
     
     // Global focus cycling
     this.screen.key(["tab"], () => {
@@ -288,6 +291,151 @@ export class View {
     this.area1.append(this.writeForm);
   }
 
+  private matchNode(node: any, query: string): boolean {
+    if (!node) return false;
+    const q = query.toLowerCase();
+    const displayName = (node.displayName || "").toLowerCase();
+    const name = (node.name || "").toLowerCase();
+    const nodeIdStr = (node.nodeId ? node.nodeId.toString() : "").toLowerCase();
+    const typeDef = (node.typeDefinitionName || "").toLowerCase();
+
+    return displayName.includes(q) || name.includes(q) || nodeIdStr.includes(q) || typeDef.includes(q);
+  }
+
+  private findMatch(tree: Tree, query: string, startIndex: number, direction: "down" | "up" = "down"): number {
+    const items = (tree as any).items || [];
+    if (items.length === 0 || !query) return -1;
+
+    const total = items.length;
+    let step = direction === "down" ? 1 : -1;
+
+    for (let i = 0; i < total; i++) {
+      const idx = (startIndex + i * step + total) % total;
+      const item = items[idx];
+      if (item && item.node && this.matchNode(item.node, query)) {
+        return idx;
+      }
+    }
+    return -1;
+  }
+
+  install_filterFormWindow() {
+    this.filterForm = blessed.box({
+      parent: this.area1,
+      top: 1,
+      left: 1,
+      width: "40%-2",
+      height: 1,
+      style: {
+        bg: "blue",
+      },
+      hidden: true,
+    });
+
+    const searchLabel = blessed.text({
+      parent: this.filterForm,
+      top: 0,
+      left: 1,
+      width: 8,
+      height: 1,
+      content: "Search:",
+      style: {
+        bg: "blue",
+        fg: "yellow",
+        bold: true,
+      },
+    });
+
+    this.filterInputElement = blessed.textbox({
+      parent: this.filterForm,
+      name: "filterPattern",
+      top: 0,
+      left: 9,
+      width: "100%-10",
+      height: 1,
+      inputOnFocus: true,
+      style: {
+        bg: "blue",
+        fg: "white",
+      },
+    });
+
+    this.filterInputElement.on("keypress", (ch: any, key: any) => {
+      process.nextTick(() => {
+        const query = this.filterInputElement.getValue().trim();
+        if (query) {
+          const matchIndex = this.findMatch(this.tree, query, this.tree.getSelectedIndex(), "down");
+          if (matchIndex >= 0) {
+            this.filterInputElement.style.fg = "white";
+            this.tree.select(matchIndex);
+            this.tree.scrollTo(matchIndex);
+          } else {
+            this.filterInputElement.style.fg = "red";
+          }
+          this.screen.render();
+        } else {
+          this.filterInputElement.style.fg = "white";
+          this.screen.render();
+        }
+      });
+    });
+
+    this.filterInputElement.key(["escape"], () => {
+      this.filterForm.hide();
+      this.tree.focus();
+      this.screen.render();
+    });
+
+    this.filterInputElement.key(["enter"], () => {
+      this.filterForm.hide();
+      this.tree.focus();
+      this.screen.render();
+    });
+
+    // Bind F3 globally on the screen to find next match
+    this.screen.key(["f3"], () => {
+      const query = this.filterInputElement.getValue().trim();
+      if (query) {
+        const currentIndex = this.tree.getSelectedIndex();
+        const matchIndex = this.findMatch(this.tree, query, currentIndex + 1, "down");
+        if (matchIndex >= 0) {
+          this.filterInputElement.style.fg = "white";
+          this.tree.select(matchIndex);
+          this.tree.scrollTo(matchIndex);
+        } else {
+          this.filterInputElement.style.fg = "red";
+        }
+        this.screen.render();
+      }
+    });
+
+    // Bind Shift-F3 globally on the screen to find previous match
+    this.screen.key(["S-f3"], () => {
+      const query = this.filterInputElement.getValue().trim();
+      if (query) {
+        const currentIndex = this.tree.getSelectedIndex();
+        const matchIndex = this.findMatch(this.tree, query, currentIndex - 1, "up");
+        if (matchIndex >= 0) {
+          this.filterInputElement.style.fg = "white";
+          this.tree.select(matchIndex);
+          this.tree.scrollTo(matchIndex);
+        } else {
+          this.filterInputElement.style.fg = "red";
+        }
+        this.screen.render();
+      }
+    });
+
+    // Bind keys on the tree directly to ensure search is activated
+    // even when the tree intercepts standard screen/listbar keys.
+    this.tree.key(["f", "/"], () => {
+      this.filterForm.show();
+      this.area1.append(this.filterForm);
+      this.filterInputElement.focus();
+      this.screen.render();
+    });
+  }
+
   install_monitoredItemsWindow() {
     this.monitoredItemsList = blessed.listtable({
       parent: this.area1,
@@ -395,18 +543,7 @@ export class View {
         keys: ["q", "x"], //["C-c", "escape"],
         callback: () => this._onExit(),
       },
-      Tree: {
-        keys: ["t"],
-        callback: () => this.tree.focus(),
-      },
-      Attributes: {
-        keys: ["l"],
-        callback: () => this.attributeList.focus(),
-      },
-      Info: {
-        keys: ["i"],
-        callback: () => this.logWindow.focus(),
-      },
+
       Clear: {
         keys: ["c"],
         callback: () => {
@@ -447,6 +584,15 @@ export class View {
         callback: () => {
           this.model.subtypeMode = !this.model.subtypeMode;
           this.populateTree();
+        },
+      },
+      Filter: {
+        keys: ["f", "/"],
+        callback: () => {
+          this.filterForm.show();
+          this.area1.append(this.filterForm);
+          this.filterInputElement.focus();
+          this.screen.render();
         },
       },
       //  "Menu": { keys: ["A-a", "x"], callback: () => this.menuBar.focus() }
@@ -716,7 +862,7 @@ export class View {
     this.alarmBox.setData(data);
 
     this.model.installAlarmMonitoring();
-    this.model.on("alarmChanged", (list: ClientAlarmList) => updateAlarmBox(list, this.alarmBox!, this.$headers));
+    this.model.on("alarmChanged", (list: ClientAlarmList) => updateAlarmBox(list, this.alarmBox!, this.$headers, this.model));
     this.alarmBox.focus();
   }
 

@@ -17,7 +17,7 @@
     "bundle": "node scratch/patch-blessed.cjs && tsup && move /Y bin\\index.cjs bin\\bundle.cjs && xcopy /E /I /Y node_modules\\blessed\\usr bin\\usr",
     "test-server": "node test-bed/server.cjs",
     "release": "npm run build && npm run bundle && npx release-it",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "vitest run",
     "ncu": "npx npm-check-updates -u -x chalk,yargs,env-paths,update-notifier,camel-case,cli-truncate",
     "start": "node bin/opcua-commander",
     "demo:secure": "node bin/opcua-commander -e opc.tcp://opcuademo.sterfive.com:26543 -s=SignAndEncrypt -P=Aes128_Sha256_RsaOaep -u=user1 -p=password1",
@@ -61,6 +61,7 @@
     "node-opcua": "^2.174.0",
     "source-map-support": "^0.5.21",
     "tsup": "^8.5.1",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
   }
 }

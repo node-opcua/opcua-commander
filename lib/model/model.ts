@@ -859,7 +859,13 @@ public async expand_opcua_node(node: any): Promise<NodeChild[]> {
     const children: NodeChild[] = [];
 
     let nodesToBrowse;
-    if (this.subtypeMode) {
+    const isTypeNode = node && (
+      node.nodeClass === NodeClass.ObjectType ||
+      node.nodeClass === NodeClass.VariableType ||
+      node.nodeClass === NodeClass.DataType ||
+      node.nodeClass === NodeClass.ReferenceType
+    );
+    if (this.subtypeMode && isTypeNode) {
         nodesToBrowse = [
             {
                 nodeId: node.nodeId,

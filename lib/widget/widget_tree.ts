@@ -1,5 +1,5 @@
 import chalk from "chalk";
-import { assert, NodeId, sameNodeId } from "node-opcua-client";
+import { assert, NodeId, sameNodeId, NodeClass } from "node-opcua-client";
 import blessed, { Widgets } from "blessed";
 import { TreeItem } from "./tree_item.js";
 
@@ -68,8 +68,9 @@ export interface Tree extends Widgets.ListElement {
 
 }
 export class Tree extends (blessed as any).list {
+    public filterPattern: string = "";
     private items: TreeItem[] = [];
-    private __data: any;
+    public __data: any;
     private _index_selectedNode: number;
     private _old_selectedNode: any;
     private showNamespace = false;
@@ -148,13 +149,15 @@ export class Tree extends (blessed as any).list {
             node.children = node.children || [];
             let isLastChild;
 
-            for (let i = 0; i < node.children.length; i++) {
+            let childrenToWalk = node.children;
 
-                const child = node.children[i];
+            for (let i = 0; i < childrenToWalk.length; i++) {
+
+                const child = childrenToWalk[i];
                 if (child) {
                     child.depth = depth + 1;
 
-                    isLastChild = (i === node.children.length - 1);
+                    isLastChild = (i === childrenToWalk.length - 1);
                     this._add(child, isLastChild, node);
                     if (child.expanded && !isFunction(child.children)) {
                         dumpChildren.call(this, child, depth + 1);
@@ -210,7 +213,7 @@ export class Tree extends (blessed as any).list {
     private getTreeItemAtPos(selectedIndex: number): TreeItem{
         return this.items[selectedIndex];
     }
-    private getSelectedIndex(): number {
+    public getSelectedIndex(): number {
         return (this as any).selected;
     }
     async expandPath(nodeIds: NodeId[]): Promise<void> {

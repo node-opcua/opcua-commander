@@ -1,7 +1,35 @@
 import { Widgets } from "blessed";
-import { ClientAlarmList, EventStuff } from "node-opcua-client";
+import { ClientAlarmList, EventStuff, NodeId } from "node-opcua-client";
 import wrap from "wordwrap";
 import truncate from "cli-truncate";
+
+const blessedColors = [
+  "white", "cyan", "green", "yellow", "magenta", "blue", "red",
+  "light-cyan", "light-green", "light-yellow", "light-magenta", "light-blue", "light-red"
+];
+
+function formatNodeIdWithColor(nodeId: NodeId, browseName: string): string {
+  const ns = nodeId.namespace;
+  const color = blessedColors[ns % blessedColors.length];
+  return `{${color}-fg}${browseName}{/${color}-fg}`;
+}
+
+async function resolveValue(value: any, model?: any): Promise<string> {
+  if (value === null || value === undefined) {
+    return "";
+  }
+  if (value instanceof NodeId) {
+    const browseName = model ? await model.getBrowseNameMaybe(value) : value.toString();
+    return formatNodeIdWithColor(value, browseName);
+  }
+  if (typeof value === "object") {
+    if (value.value instanceof NodeId) {
+      const browseName = model ? await model.getBrowseNameMaybe(value.value) : value.value.toString();
+      return formatNodeIdWithColor(value.value, browseName);
+    }
+  }
+  return value.toString();
+}
 
 function ellipsys(a: any) {
   if (!a) {
@@ -24,14 +52,20 @@ function n(a: any) {
 function f(flag: boolean): string {
   return flag ? "X" : "_";
 }
-export async function updateAlarmBox(clientAlarms: ClientAlarmList, alarmBox: Widgets.ListTableElement, headers: any) {
+export async function updateAlarmBox(
+  clientAlarms: ClientAlarmList,
+  alarmBox: Widgets.ListTableElement,
+  headers: any,
+  model?: any
+) {
   const data = [headers];
 
   for (const alarm of clientAlarms.alarms()) {
     const fields = alarm.fields as any;
     const isEnabled = fields.enabledState && fields.enabledState.id && fields.enabledState.id.value;
 
-    const sourceName = fields.sourceName && fields.sourceName.value ? fields.sourceName.value.toString() : "";
+    const sourceNameRaw = fields.sourceName && fields.sourceName.value ? fields.sourceName.value : "";
+    const sourceName = await resolveValue(sourceNameRaw, model);
 
     const message = fields.message && fields.message.value ? (fields.message.value.text || fields.message.value.toString()) : "";
     const m = formatMultiline(message, 80);
@@ -39,8 +73,8 @@ export async function updateAlarmBox(clientAlarms: ClientAlarmList, alarmBox: Wi
       const aa = m[i];
       if (i === 0) {
         data.push([
-          alarm.eventType.toString(),
-          alarm.conditionId.toString(),
+          await resolveValue(alarm.eventType, model),
+          await resolveValue(alarm.conditionId, model),
           sourceName,
           // fields.branchId.value.toString(),
           // ellipsys(alarm.eventId.toString("hex")),
@@ -72,3 +106,4 @@ export async function updateAlarmBox(clientAlarms: ClientAlarmList, alarmBox: Wi
   alarmBox.setRows(data);
   alarmBox.screen.render();
 }
+
