@@ -101,6 +101,31 @@ export class View {
     this.logWindow = this.install_logWindow();
     this.menuBar = this.install_mainMenu();
     this.tree = this.install_address_space_explorer();
+    
+    // Global focus cycling
+    this.screen.key(["tab"], () => {
+      if (this.screen.focused === this.tree) {
+        this.attributeList.focus();
+      } else if (this.screen.focused === this.attributeList) {
+        this.monitoredItemsList.focus();
+      } else if (this.screen.focused === this.monitoredItemsList) {
+        this.logWindow.focus();
+      } else {
+        this.tree.focus();
+      }
+    });
+    this.screen.key(["S-tab"], () => {
+      if (this.screen.focused === this.tree) {
+        this.logWindow.focus();
+      } else if (this.screen.focused === this.logWindow) {
+        this.monitoredItemsList.focus();
+      } else if (this.screen.focused === this.monitoredItemsList) {
+        this.attributeList.focus();
+      } else {
+        this.tree.focus();
+      }
+    });
+
     // Render the screen.
     this.screen.render();
   }
@@ -386,6 +411,10 @@ export class View {
         keys: ["a"],
         callback: this._onToggleAlarmWindows.bind(this),
       },
+      Call: {
+        keys: ["k"],
+        callback: () => this._onCallMethodSelectedItem(),
+      },
       //  "Menu": { keys: ["A-a", "x"], callback: () => this.menuBar.focus() }
     });
     return menuBar;
@@ -647,5 +676,12 @@ export class View {
     return new Promise<void>((resolve) => {
       this.screen.on("destroy", resolve);
     });
+  }
+
+  private async _onCallMethodSelectedItem() {
+    const treeItem = this.tree.getSelectedItem();
+    if (!treeItem || !treeItem.node) return;
+    console.log(" Call Method on ", treeItem.node.nodeId.toString());
+    // TODO: Implement method call
   }
 }
