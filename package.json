@@ -14,7 +14,7 @@
   ],
   "scripts": {
     "build": "tsc -b && npm run bundle",
-    "bundle": "npx -y esbuild --bundle --outfile=bin/bundle.js --format=esm --external:blessed  --external:chalk --external:wrap-ansi --external:proper-lockfile --minify-syntax --sourcemap --platform=node lib/index.ts",
+    "bundle": "npx -y esbuild --bundle --outfile=bin/bundle.js --format=esm --external:blessed  --external:chalk --external:wrap-ansi --external:proper-lockfile --minify-syntax --sourcemap --platform=node --banner:js=\"import { createRequire } from 'module'; import { fileURLToPath } from 'url'; import { dirname } from 'path'; const require = createRequire(import.meta.url); const __filename = fileURLToPath(import.meta.url); const __dirname = dirname(__filename);\" lib/index.ts",
     "release": "npm run build && npm run bundle && npx release-it",
     "test": "echo \"Error: no test specified\" && exit 1",
     "ncu": "npx npm-check-updates -u -x chalk,yargs,env-paths,update-notifier,camel-case,cli-truncate",
@@ -41,7 +41,7 @@
   },
   "dependencies": {
     "blessed": "^0.1.81",
-    "chalk": "4.1.2",
+    "chalk": "^4.1.2",
     "check-node-version": "4.2.1",
     "cli-truncate": "2.1.0",
     "commander": "^15.0.0",

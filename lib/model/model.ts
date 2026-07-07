@@ -2,14 +2,14 @@ import { EventEmitter } from "events";
 import os from "os";
 import fs from "fs";
 
-import {
+import chalk from "chalk";
+const {
   bgBlueBright,
   yellow,
   cyanBright,
   greenBright, 
   magenta, bgCyanBright, cyan, bgGreenBright, bgWhiteBright, yellowBright, green, magentaBright, red
-}
-  from "chalk";
+} = chalk;
 import {
   accessLevelFlagToString,
   AttributeIds,

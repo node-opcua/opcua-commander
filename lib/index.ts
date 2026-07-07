@@ -1,5 +1,4 @@
 /* eslint no-console: off , no-process-exit: off*/
-import "source-map-support/register.js";
 import { promisify } from "util";
 import chalk from "chalk";
 import { Model, makeUserIdentity } from "./model/model.js";
@@ -8,8 +7,7 @@ import { MessageSecurityMode, SecurityPolicy } from "node-opcua-client";
 import { makeCertificate } from "./make_certificate.js";
 import fs from "fs";
 import path from "path";
-import { createRequire } from "module";
-const require = createRequire(import.meta.url);
+
 
 const packageJson = require("../package.json");
 const version = packageJson.version;
