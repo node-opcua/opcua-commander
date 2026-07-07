@@ -14,7 +14,7 @@
   ],
   "scripts": {
     "build": "tsc -b && npm run bundle",
-    "bundle": "node scratch/patch-blessed.cjs && tsup && move /Y bin\\index.cjs bin\\bundle.cjs && xcopy /E /I /Y node_modules\\blessed\\usr bin\\usr",
+    "bundle": "node scratch/patch-blessed.cjs && tsup && node scratch/post-bundle.cjs",
     "test-server": "node test-bed/server.cjs",
     "release": "npm run build && npm run bundle && npx release-it",
     "test": "vitest run",
@@ -30,6 +30,9 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/node-opcua/opcua-commander.git"
+  },
+  "publishConfig": {
+    "provenance": true
   },
   "bin": {
     "opcua-commander": "bin/opcua-commander"
