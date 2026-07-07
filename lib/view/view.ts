@@ -72,7 +72,7 @@ export class View {
   public monitoredItemsHelp!: blessed.Widgets.TextElement;
   public logWindowHelp!: blessed.Widgets.TextElement;
 
-  private _history: NodeId[] = [];
+  private _history: NodeId[][] = [];
   private _historyIndex = -1;
   private _isPushingToHistory = false;
   private _referenceFilter: "both" | "forward" | "backward" = "both";
@@ -877,8 +877,16 @@ export class View {
     }
   }
 
-  private async fill_attributesRegion(nodeId: NodeId) {
-    this._pushToHistory(nodeId);
+  private async fill_attributesRegion(nodeId: NodeId, path?: NodeId[]) {
+    if (!path) {
+      const treeItem = this.tree.getSelectedItem();
+      if (treeItem && treeItem.node && sameNodeId(treeItem.node.nodeId, nodeId)) {
+        path = this._getPathToRoot(treeItem.node);
+      } else {
+        path = [nodeId];
+      }
+    }
+    this._pushToHistory(path);
     this.fill_referencesRegion(nodeId); // async but don't wait
     type ATT = [string, string];
     const attr: ATT[] = [];
@@ -1187,13 +1195,46 @@ export class View {
     // TODO: Implement method call
   }
 
-  private _pushToHistory(nodeId: NodeId) {
-    if (this._isPushingToHistory) return;
-    if (this._historyIndex >= 0 && sameNodeId(this._history[this._historyIndex], nodeId)) return;
+  private _getPathToRoot(node: any): NodeId[] {
+    const path: NodeId[] = [];
+    let current = node;
+    while (current) {
+      if (current.nodeId) {
+        path.unshift(current.nodeId);
+      }
+      current = current.parent;
+    }
+    return path;
+  }
 
-    // Truncate future history if we were in the middle
+  private _pushToHistory(path: NodeId[]) {
+    if (this._isPushingToHistory) return;
+    if (this._historyIndex >= 0) {
+      const currentPath = this._history[this._historyIndex];
+      if (currentPath && currentPath.length === path.length && currentPath.every((id, idx) => sameNodeId(id, path[idx]))) {
+        return;
+      }
+
+      // Check if we are navigating up to the parent of the current node
+      if (currentPath && path.length === currentPath.length - 1 && path.every((id, idx) => sameNodeId(id, currentPath[idx]))) {
+        // If the previous history entry is already the parent, just go back to it
+        if (this._historyIndex > 0) {
+          const prevPath = this._history[this._historyIndex - 1];
+          if (prevPath && prevPath.length === path.length && prevPath.every((id, idx) => sameNodeId(id, path[idx]))) {
+            this._historyIndex--;
+            return;
+          }
+        }
+        // Otherwise, insert the parent path right before the current child path
+        this._history.splice(this._historyIndex, 0, path);
+        // index remains pointing to the newly inserted parent, and child is forward!
+        return;
+      }
+    }
+
+    // Truncate future history if we were in the middle of standard navigation
     this._history = this._history.slice(0, this._historyIndex + 1);
-    this._history.push(nodeId);
+    this._history.push(path);
     this._historyIndex = this._history.length - 1;
     if (this._history.length > 50) {
       this._history.shift();
@@ -1215,15 +1256,23 @@ export class View {
     }
   }
 
-  private async _jumpToNode(nodeId: NodeId, fromHistory = false) {
+  private async _jumpToNode(nodeIdOrPath: NodeId | NodeId[], fromHistory = false) {
     this._isPushingToHistory = true;
     try {
-      const path = await this.model.findPathToRoot(nodeId);
+      let path: NodeId[];
+      let nodeId: NodeId;
+      if (Array.isArray(nodeIdOrPath)) {
+        path = nodeIdOrPath;
+        nodeId = path[path.length - 1];
+      } else {
+        nodeId = nodeIdOrPath;
+        path = await this.model.findPathToRoot(nodeId);
+      }
       await this.tree.expandPath(path);
       if (!fromHistory) {
-        this._pushToHistory(nodeId);
+        this._pushToHistory(path);
       }
-      await this.fill_attributesRegion(nodeId);
+      await this.fill_attributesRegion(nodeId, path);
       await this.fill_referencesRegion(nodeId);
     } finally {
       this._isPushingToHistory = false;

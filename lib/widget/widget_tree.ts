@@ -258,10 +258,16 @@ export class Tree extends (blessed as any).list {
             if (i === nodeIds.length - 1) {
                 // Found target!
                 this.setData(this.__data); // Ensure everything is walked
-                const index = (this as any).items.findIndex((item: any) => sameNodeId(item.node.nodeId, nodeId));
+                let index = (this as any).items.findIndex((item: any) => item && item.node === currentData);
+                if (index < 0) {
+                    index = (this as any).items.findIndex((item: any) => item && item.node && item.node.nodeId && sameNodeId(item.node.nodeId, nodeId));
+                }
                 if (index >= 0) {
                     this.select(index);
                     this.scrollTo(index);
+                    if (this.screen) {
+                        this.screen.render();
+                    }
                 }
                 break;
             }

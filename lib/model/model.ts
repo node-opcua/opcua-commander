@@ -182,6 +182,7 @@ export class Model extends EventEmitter {
   private enumDefinitionCache: Map<string, Map<number, string> | null> = new Map();
   private typeNameCache: Map<string, string> = new Map();
   private multiStateCache: Map<string, string[]> = new Map();
+  private euPropertiesCache: Map<string, { euRange?: string; engineeringUnits?: string }> = new Map();
 
   public data: any;
   public showNamespace = false;
@@ -195,6 +196,7 @@ export class Model extends EventEmitter {
     this.enumDefinitionCache.clear();
     this.typeNameCache.clear();
     this.multiStateCache.clear();
+    this.euPropertiesCache.clear();
   }
 
   public async initialize(
@@ -766,6 +768,75 @@ export class Model extends EventEmitter {
     return null;
   }
 
+  private async getEURangeAndEngineeringUnitsMaybe(nodeId: NodeId): Promise<{ euRange?: string; engineeringUnits?: string }> {
+    const key = nodeId.toString();
+    if (this.euPropertiesCache.has(key)) {
+      return this.euPropertiesCache.get(key)!;
+    }
+
+    const result: { euRange?: string; engineeringUnits?: string } = {};
+
+    if (!this.session) {
+      return result;
+    }
+
+    try {
+      const browseResult = await this.session.browse({
+        nodeId,
+        referenceTypeId: "HasProperty",
+        browseDirection: BrowseDirection.Forward,
+        includeSubtypes: true,
+        resultMask: 63,
+      });
+
+      if (browseResult.references && browseResult.references.length > 0) {
+        for (const ref of browseResult.references) {
+          const name = ref.browseName.name;
+          if (name === "EURange") {
+            try {
+              const dv = await this.session.read({
+                nodeId: ref.nodeId,
+                attributeId: AttributeIds.Value,
+              });
+              if (dv.statusCode === StatusCodes.Good && dv.value?.value) {
+                const val = dv.value.value;
+                if (typeof val === "object" && val !== null && "low" in val && "high" in val) {
+                  result.euRange = `[ ${val.low}, ${val.high} ]`;
+                }
+              }
+            } catch (e) {
+              // ignore
+            }
+          } else if (name === "EngineeringUnits") {
+            try {
+              const dv = await this.session.read({
+                nodeId: ref.nodeId,
+                attributeId: AttributeIds.Value,
+              });
+              if (dv.statusCode === StatusCodes.Good && dv.value?.value) {
+                const val = dv.value.value;
+                if (typeof val === "object" && val !== null) {
+                  if (val.displayName && typeof val.displayName === "object") {
+                    result.engineeringUnits = val.displayName.text || val.displayName.toString();
+                  } else if (val.displayName) {
+                    result.engineeringUnits = val.displayName.toString();
+                  }
+                }
+              }
+            } catch (e) {
+              // ignore
+            }
+          }
+        }
+      }
+    } catch (err) {
+      // ignore
+    }
+
+    this.euPropertiesCache.set(key, result);
+    return result;
+  }
+
   public async readNodeAttributes(nodeId: NodeId): Promise<{ attribute: string; text: string }[]> {
     if (!this.session) {
       return [];
@@ -817,11 +888,32 @@ export class Model extends EventEmitter {
 
         if (nodeToRead.attributeId === AttributeIds.Value) {
           if (nodeClass === NodeClass.Variable || nodeClass === NodeClass.VariableType) {
+            let valueText = dataValueValueToString(dataValue, resolvedEnumString);
+            let euRange: string | undefined;
+            let engineeringUnits: string | undefined;
+            try {
+              const props = await this.getEURangeAndEngineeringUnitsMaybe(nodeId);
+              euRange = props.euRange;
+              engineeringUnits = props.engineeringUnits;
+            } catch (err) {
+              // ignore
+            }
+
+            if (engineeringUnits) {
+              valueText += " " + engineeringUnits;
+            }
+
             // Push separate entries for a better UX
             results.push({
               attribute: "Value",
-              text: dataValueValueToString(dataValue, resolvedEnumString)
+              text: valueText
             });
+            if (euRange) {
+              results.push({
+                attribute: "EURange",
+                text: euRange
+              });
+            }
             results.push({
               attribute: "StatusCode",
               text: dataValue.statusCode ? dataValue.statusCode.toString() : "Good"
