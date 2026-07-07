@@ -9,20 +9,11 @@ function ellipsys(a: any) {
   }
   return truncate(a, 20, { position: "middle" });
 }
-function formatMultiline(s: string, width: number): string[] {
-  return wrap(80)(s).split("\n");
-
-  let a = "";
-  let r = [];
-  for (const word of s.split(" ")) {
-    if (a.length + word.length > width) {
-      r.push(a);
-      a = word;
-    } else {
-      a = a + " " + word;
-    }
+function formatMultiline(s: string | null | undefined, width: number): string[] {
+  if (!s) {
+    return [""];
   }
-  return r;
+  return wrap(80)(s).split("\n");
 }
 function n(a: any) {
   if (a === null || a === undefined) {
@@ -38,11 +29,12 @@ export async function updateAlarmBox(clientAlarms: ClientAlarmList, alarmBox: Wi
 
   for (const alarm of clientAlarms.alarms()) {
     const fields = alarm.fields as any;
-    const isEnabled = fields.enabledState.id.value;
+    const isEnabled = fields.enabledState && fields.enabledState.id && fields.enabledState.id.value;
 
-    const sourceName = fields.sourceName.value?.toString();
+    const sourceName = fields.sourceName && fields.sourceName.value ? fields.sourceName.value.toString() : "";
 
-    const m = formatMultiline(fields.message.value.text, 80);
+    const message = fields.message && fields.message.value ? (fields.message.value.text || fields.message.value.toString()) : "";
+    const m = formatMultiline(message, 80);
     for (let i = 0; i < m.length; i++) {
       const aa = m[i];
       if (i === 0) {
@@ -53,13 +45,13 @@ export async function updateAlarmBox(clientAlarms: ClientAlarmList, alarmBox: Wi
           // fields.branchId.value.toString(),
           // ellipsys(alarm.eventId.toString("hex")),
           isEnabled ? aa : "-",
-          isEnabled ? fields.severity.value + " (" + fields.lastSeverity.value + ")" : "-",
+          isEnabled ? (fields.severity ? fields.severity.value + " (" + fields.lastSeverity.value + ")" : "?") : "-",
           f(isEnabled) +
             (isEnabled ? f(fields.activeState.id.value) : "-") +
             (isEnabled ? f(fields.ackedState.id.value) : "-") +
             (isEnabled ? f(fields.confirmedState.id.value) : "-"),
           // (isEnabled ? f(fields.retain.value) : "-"),
-          isEnabled ? ellipsys(fields.comment.value.text) : "-",
+          isEnabled ? (fields.comment && fields.comment.value ? ellipsys(fields.comment.value.text) : "") : "-",
         ]);
       } else {
         data.push([
