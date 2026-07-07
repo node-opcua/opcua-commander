@@ -693,15 +693,41 @@ export class Model extends EventEmitter {
         const nodeToRead = nodesToRead[i];
         const dataValue = dataValues[i];
 
-        if (dataValue.statusCode !== StatusCodes.Good) {
+        if (dataValue.statusCode !== StatusCodes.Good && nodeToRead.attributeId !== AttributeIds.Value) {
           continue;
         }
-        const enumStr = (nodeToRead.attributeId === AttributeIds.Value) ? resolvedEnumString : null;
-        const s = toString1(nodeToRead.attributeId!, dataValue, dataTypeNodeId, enumStr);
-        results.push({
-          attribute: attributeIdToString[nodeToRead.attributeId!],
-          text: s,
-        });
+
+        if (nodeToRead.attributeId === AttributeIds.Value) {
+          // Push separate entries for a better UX
+          results.push({
+            attribute: "Value",
+            text: dataValueValueToString(dataValue, resolvedEnumString)
+          });
+          results.push({
+            attribute: "StatusCode",
+            text: dataValue.statusCode ? dataValue.statusCode.toString() : "Good"
+          });
+          if (dataValue.sourceTimestamp && dataValue.sourceTimestamp.getTime() !== 0) {
+            let src = dataValue.sourceTimestamp.toISOString();
+            if (dataValue.sourcePicoseconds !== undefined && dataValue.sourcePicoseconds !== 0) {
+              src += " ns:" + dataValue.sourcePicoseconds;
+            }
+            results.push({ attribute: "SourceTimestamp", text: src });
+          }
+          if (dataValue.serverTimestamp && dataValue.serverTimestamp.getTime() !== 0) {
+            let srv = dataValue.serverTimestamp.toISOString();
+            if (dataValue.serverPicoseconds !== undefined && dataValue.serverPicoseconds !== 0) {
+              srv += " ns:" + dataValue.serverPicoseconds;
+            }
+            results.push({ attribute: "ServerTimestamp", text: srv });
+          }
+        } else {
+          const s = toString1(nodeToRead.attributeId!, dataValue, dataTypeNodeId, null);
+          results.push({
+            attribute: attributeIdToString[nodeToRead.attributeId!],
+            text: s,
+          });
+        }
       }
       return results;
     } catch (err) {
@@ -806,7 +832,7 @@ function invert<T extends { toString(): string }>(o: Record<string, T>) {
 const attributeIdToString = invert(AttributeIds);
 const DataTypeIdsToString = invert(DataTypeIds);
 
-function dataValueToString(dataValue: DataValue, resolvedEnumString?: string | null) {
+function dataValueValueToString(dataValue: DataValue, resolvedEnumString?: string | null) {
   let s = "";
   if (!dataValue.value || dataValue.value.value === null) {
     s = "<???>";
@@ -828,29 +854,7 @@ function dataValueToString(dataValue: DataValue, resolvedEnumString?: string | n
         break;
     }
   }
-
-  const lines = [s];
-  
-  const statusStr = dataValue.statusCode ? dataValue.statusCode.toString() : "Good";
-  lines.push("status: " + statusStr);
-
-  if (dataValue.sourceTimestamp && dataValue.sourceTimestamp.getTime() !== 0) {
-    let src = "src:    " + dataValue.sourceTimestamp.toISOString();
-    if (dataValue.sourcePicoseconds !== undefined && dataValue.sourcePicoseconds !== 0) {
-      src += " ns:" + dataValue.sourcePicoseconds;
-    }
-    lines.push(src);
-  }
-
-  if (dataValue.serverTimestamp && dataValue.serverTimestamp.getTime() !== 0) {
-    let srv = "srv:    " + dataValue.serverTimestamp.toISOString();
-    if (dataValue.serverPicoseconds !== undefined && dataValue.serverPicoseconds !== 0) {
-      srv += " ns:" + dataValue.serverPicoseconds;
-    }
-    lines.push(srv);
-  }
-  
-  return lines.join("\n");
+  return s;
 }
 
 function toString1(attribute: AttributeIds, dataValue: DataValue | null, dataTypeNodeId?: NodeId | null, resolvedEnumString?: string | null) {
@@ -892,7 +896,7 @@ function toString1(attribute: AttributeIds, dataValue: DataValue | null, dataTyp
       }
       return accessLevelFlagToString(value) + " (" + value + ")";
     default:
-      return dataValueToString(dataValue, resolvedEnumString);
+      return dataValueValueToString(dataValue, resolvedEnumString);
   }
 }
 
