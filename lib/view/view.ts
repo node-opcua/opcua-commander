@@ -2,13 +2,13 @@ import blessed from "blessed";
 import { format, callbackify } from "util";
 import chalk from "chalk";
 
-import { TreeItem } from "../widget/tree_item";
+import { TreeItem } from "../widget/tree_item.js";
 import { ClientAlarmList, NodeId, resolveNodeId, sameNodeId, VariantArrayType } from "node-opcua-client";
 
-import { Tree } from "../widget/widget_tree";
-import { Model, NodeChild } from "../model/model";
-import { updateAlarmBox } from "./alarm_box";
-import { w } from "../utils/utils";
+import { Tree } from "../widget/widget_tree.js";
+import { Model, NodeChild } from "../model/model.js";
+import { updateAlarmBox } from "./alarm_box.js";
+import { w } from "../utils/utils.js";
 
 const w2 = "40%";
 
@@ -54,17 +54,17 @@ export class View {
   private monitoredItemsList: any;
   private $headers: string[] = [];
 
-  public screen: blessed.Widgets.Screen;
-  public area1: blessed.Widgets.BoxElement;
-  public area2: blessed.Widgets.BoxElement;
-  public menuBar: blessed.Widgets.ListbarElement;
+  public screen!: blessed.Widgets.Screen;
+  public area1!: blessed.Widgets.BoxElement;
+  public area2!: blessed.Widgets.BoxElement;
+  public menuBar!: blessed.Widgets.ListbarElement;
   public alarmBox?: blessed.Widgets.ListTableElement;
-  public attributeList: blessed.Widgets.ListElement;
+  public attributeList!: blessed.Widgets.ListElement;
   public attributeListNodeId?: NodeId;
-  public logWindow: blessed.Widgets.ListElement;
-  public tree: Tree;
-  public writeForm: blessed.Widgets.BoxElement;
-  public valuesToWriteElement: blessed.Widgets.TextboxElement;
+  public logWindow!: blessed.Widgets.ListElement;
+  public tree!: Tree;
+  public writeForm!: blessed.Widgets.BoxElement;
+  public valuesToWriteElement!: blessed.Widgets.TextboxElement;
 
   public model: Model;
 
@@ -476,7 +476,7 @@ export class View {
   }
 
   private _onNodeChanged(nodeId: NodeId) {
-    if (sameNodeId(this.attributeListNodeId, nodeId)) {
+    if (this.attributeListNodeId && sameNodeId(this.attributeListNodeId, nodeId)) {
       // we need to refresh the attribute list
       this.fill_attributesRegion(nodeId);
     }
@@ -577,7 +577,7 @@ export class View {
     this.alarmBox.setData(data);
 
     this.model.installAlarmMonitoring();
-    this.model.on("alarmChanged", (list: ClientAlarmList) => updateAlarmBox(list, this.alarmBox, this.$headers));
+    this.model.on("alarmChanged", (list: ClientAlarmList) => updateAlarmBox(list, this.alarmBox!, this.$headers));
     this.alarmBox.focus();
   }
 

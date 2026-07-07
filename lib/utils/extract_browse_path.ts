@@ -62,7 +62,7 @@ export async function extractBrowsePath(session: IBasicSessionAsync, nodeId: Nod
 
     // verification
     const a = await session.translateBrowsePath(makeBrowsePath("i=84", browsePath));
-    return browsePath + " (" + a.targets[0]?.targetId?.toString() + ")";
+    return browsePath + " (" + (a.targets ? a.targets[0]?.targetId?.toString() : "null") + ")";
   } catch (err) {
     return "err" + (err as Error).message;
   }

@@ -1,8 +1,7 @@
 import chalk from "chalk";
-import { assert } from "node-opcua-client"
-import { Widgets } from "blessed";
-import { TreeItem } from "./tree_item";
-const blessed = require("blessed");
+import { assert } from "node-opcua-client";
+import blessed, { Widgets } from "blessed";
+import { TreeItem } from "./tree_item.js";
 
 // some unicode icon characters ►▼◊◌○●□▪▫֎☺◘♦
 
@@ -37,7 +36,7 @@ function dummy(node: any, callback: (err: Error | null, child: any) => void) {
 export interface Tree extends Widgets.ListElement {
 
 }
-export class Tree extends blessed.List {
+export class Tree extends (blessed as any).list {
     private items: TreeItem[] = [];
     private __data: any;
     private _index_selectedNode: number;

@@ -1,22 +1,24 @@
 /* eslint no-console: off , no-process-exit: off*/
-require("source-map-support/register");
+import "source-map-support/register.js";
 import { promisify } from "util";
 import chalk from "chalk";
-import { Model, makeUserIdentity } from "./model/model";
-import { View } from "./view/view";
+import { Model, makeUserIdentity } from "./model/model.js";
+import { View } from "./view/view.js";
 import { MessageSecurityMode, SecurityPolicy } from "node-opcua-client";
-import { makeCertificate } from "./make_certificate";
+import { makeCertificate } from "./make_certificate.js";
 import fs from "fs";
 import path from "path";
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
 
-const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf-8"));
+const packageJson = require("../package.json");
 const version = packageJson.version;
 
-const check = require("check-node-version");
+import check from "check-node-version";
 
 async function check_nodejs() {
   try {
-    const result = await promisify(check)({ node: ">=12" });
+    const result: any = await promisify(check as any)({ node: ">=12" });
     if (result.isSatisfied) {
       return;
     }
@@ -31,16 +33,19 @@ async function check_nodejs() {
       }
     }
     process.exit();
-  } catch (err) {
+  } catch (err: any) {
     console.error(err);
     process.exit();
   }
 }
 
 // xx const updateNotifier = require("update-notifier");
-const pkg = require("../package.json");
+const pkg = packageJson;
 
-const argv = require("yargs")
+import yargs from "yargs";
+import { hideBin } from "yargs/helpers";
+
+const argv = (yargs(hideBin(process.argv)) as any)
   .wrap(132)
 
   .demand("endpoint")
@@ -92,25 +97,24 @@ const argv = require("yargs")
 const securityMode: MessageSecurityMode = MessageSecurityMode[argv.securityMode || "None"] as any as MessageSecurityMode;
 if (!securityMode) {
   throw new Error(
-    `Invalid Security mode , was  ${chalk.magenta(argv.securityMode)}\nshould be  ${chalk.cyan(
-      Object.values(MessageSecurityMode).filter(isNaN).join(",")
+    `Invalid Security mode , was  ${chalk.magenta((argv as any).securityMode)}\nshould be  ${chalk.cyan(
+      Object.values(MessageSecurityMode).filter((v) => typeof v === "string").join(",")
     )}`
   );
 }
 
-const securityPolicy = (SecurityPolicy as any)[argv.securityPolicy || "None"];
+const securityPolicy = (SecurityPolicy as any)[(argv as any).securityPolicy || "None"];
 if (!securityPolicy) {
   throw new Error(
-    `Invalid securityPolicy\nwas       : ${chalk.magenta(argv.securityPolicy)}\nshould be : ${chalk.cyan(
+    `Invalid securityPolicy\nwas       : ${chalk.magenta((argv as any).securityPolicy)}\nshould be : ${chalk.cyan(
       Object.keys(SecurityPolicy).filter((k) => typeof k === "string" && k !== "Invalid" && !k.match(/PubSub/))
     )}`
   );
 }
 
-const endpointUrl = argv.endpoint || "opc.tcp://localhost:26543";
-const yargs = require("yargs");
+const endpointUrl = (argv as any).endpoint || "opc.tcp://localhost:26543";
 if (!endpointUrl) {
-  yargs.showHelp();
+  (yargs as any).showHelp();
   // xx updateNotifier({ pkg }).notify();
   process.exit(0);
 }
