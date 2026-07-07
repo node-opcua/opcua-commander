@@ -9,6 +9,22 @@ function isFunction(variableToCheck: any) {
     return variableToCheck instanceof Function;
 }
 
+const nsColors = [
+    chalk.white,
+    chalk.cyan,
+    chalk.green,
+    chalk.yellow,
+    chalk.magenta,
+    chalk.blue,
+    chalk.red,
+    chalk.cyanBright,
+    chalk.greenBright,
+    chalk.yellowBright,
+    chalk.magentaBright,
+    chalk.blueBright,
+    chalk.redBright,
+];
+
 function toContent(node: any, isLastChild: boolean, parent: any): any {
 
     if (parent) {
@@ -31,7 +47,12 @@ function toContent(node: any, isLastChild: boolean, parent: any): any {
     if (node.typeDefinitionName) {
         typeName = chalk.grey(" [" + node.typeDefinitionName + "]");
     }
-    const str = node.prefix + s + c + node.name + typeName;
+
+    const ns = node.nodeId ? node.nodeId.namespace : 0;
+    const color = nsColors[ns % nsColors.length];
+    const nameWithNs = color("(" + ns + ") " + node.name);
+
+    const str = node.prefix + s + c + nameWithNs + typeName;
 
     return str;
 }
