@@ -43,6 +43,7 @@ async function main() {
   const userIdentity = makeUserIdentity(argv);
 
   const model = new Model();
+  model.showNamespace = !!argv.showNamespace;
 
   const options = {
     endpoint,

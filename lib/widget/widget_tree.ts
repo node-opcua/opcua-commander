@@ -25,7 +25,7 @@ const nsColors = [
     chalk.redBright,
 ];
 
-function toContent(node: any, isLastChild: boolean, parent: any): any {
+function toContent(node: any, isLastChild: boolean, parent: any, showNamespace: boolean): any {
 
     if (parent) {
         const sep = (parent.isLastChild) ? " " : "│";
@@ -50,7 +50,12 @@ function toContent(node: any, isLastChild: boolean, parent: any): any {
 
     const ns = node.nodeId ? node.nodeId.namespace : 0;
     const color = nsColors[ns % nsColors.length];
-    const nameWithNs = color("(" + ns + ") " + node.name);
+    
+    let nameWithNs = node.name;
+    if (showNamespace && ns !== 0) {
+        nameWithNs = "(" + ns + ") " + node.name;
+    }
+    nameWithNs = color(nameWithNs);
 
     const str = node.prefix + s + c + nameWithNs + typeName;
 
@@ -67,6 +72,7 @@ export class Tree extends (blessed as any).list {
     private __data: any;
     private _index_selectedNode: number;
     private _old_selectedNode: any;
+    private showNamespace = false;
 
     constructor(options: any) {
 
@@ -99,6 +105,8 @@ export class Tree extends (blessed as any).list {
 
         super(options);
 
+        this.showNamespace = !!options.showNamespace;
+
         this.key(["+", "right"], this.expandSelected.bind(this));
         this.key(["-", "left"], this.collapseSelected.bind(this));
 
@@ -108,7 +116,7 @@ export class Tree extends (blessed as any).list {
 
     _add(node: any, isLastChild: boolean, parent: any) {
         node.isLastChild = isLastChild;
-        const item = this.add(toContent(node, isLastChild, parent)) as any;
+        const item = this.add(toContent(node, isLastChild, parent, this.showNamespace)) as any;
         item.node = node;
         if (this._old_selectedNode === node) {
             this._index_selectedNode = this.itemCount - 1;

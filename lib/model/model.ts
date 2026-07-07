@@ -180,8 +180,10 @@ export class Model extends EventEmitter {
   private clientAlarms: ClientAlarmList = new ClientAlarmList();
   private enumDefinitionCache: Map<string, Map<number, string> | null> = new Map();
   private typeNameCache: Map<string, string> = new Map();
+  private multiStateCache: Map<string, string[]> = new Map();
 
   public data: any;
+  public showNamespace = false;
   public constructor() {
     super();
     this.data = data;
@@ -190,6 +192,7 @@ export class Model extends EventEmitter {
   public clearCache() {
     this.enumDefinitionCache.clear();
     this.typeNameCache.clear();
+    this.multiStateCache.clear();
   }
 
   public async initialize(
@@ -662,7 +665,42 @@ export class Model extends EventEmitter {
   }
 
 
-  public async readNodeAttributes(nodeId: NodeId): Promise<{ attribute: string, text: string }[]> {
+  private async getMultiStateStringMaybe(nodeId: NodeId, value: number): Promise<string | null> {
+    const cacheKey = nodeId.toString();
+    if (this.multiStateCache.has(cacheKey)) {
+      const strings = this.multiStateCache.get(cacheKey)!;
+      return strings[value] || null;
+    }
+
+    try {
+      // Browse for EnumStrings property
+      const browseResult = await this.session!.browse({
+        nodeId,
+        referenceTypeId: "HasProperty",
+        browseDirection: BrowseDirection.Forward,
+        resultMask: 63,
+      });
+
+      const enumStringsRef = browseResult.references?.find((r) => r.browseName.name === "EnumStrings");
+      if (enumStringsRef) {
+        const enumStringsValue = await this.session!.read({
+          nodeId: enumStringsRef.nodeId,
+          attributeId: AttributeIds.Value,
+        });
+
+        if (enumStringsValue.statusCode === StatusCodes.Good && Array.isArray(enumStringsValue.value.value)) {
+          const enumStrings = enumStringsValue.value.value.map((v: any) => v.text || v.toString());
+          this.multiStateCache.set(cacheKey, enumStrings);
+          return enumStrings[value] || null;
+        }
+      }
+    } catch (err) {
+      // ignore
+    }
+    return null;
+  }
+
+  public async readNodeAttributes(nodeId: NodeId): Promise<{ attribute: string; text: string }[]> {
     if (!this.session) {
       return [];
     }
@@ -690,6 +728,9 @@ export class Model extends EventEmitter {
           const v = dataValues[valueAttrIdx].value?.value;
           if (typeof v === "number") {
             resolvedEnumString = await this.getEnumerationMaybe(dataTypeNodeId, v);
+            if (!resolvedEnumString) {
+              resolvedEnumString = await this.getMultiStateStringMaybe(nodeId, v);
+            }
           }
         }
       }

@@ -436,6 +436,7 @@ export class View {
       mouse: true,
       border: "line",
       style: { ...style },
+      showNamespace: this.model.showNamespace,
     });
 
     //allow control the table with the keyboard
