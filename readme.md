@@ -108,4 +108,12 @@ node bin/opcua-commander -e opc.tcp://localhost:26543
 ## 🤝 Contributing
 Contributions, bug reports, and suggestions are always welcome! Feel free to open issues or pull requests on [GitHub](https://github.com/node-opcua/opcua-commander).
 
+---
+
+## 💎 Created & Maintained by Sterfive
+`opcua-commander` and the underlying [node-opcua](https://github.com/node-opcua/node-opcua) stack are proudly designed, developed, and maintained by **[Sterfive](https://www.sterfive.com/)**, the leading expert organization in industrial IoT, OPC UA technology, custom client/server integrations, and professional support.
+
+Need professional support, custom industrial IoT features, or enterprise-grade OPC UA guidance? Visit **[sterfive.com](https://www.sterfive.com/)** or reach out for expert consulting services.
+
 License: [MIT](LICENSE)
+
