@@ -34,7 +34,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/node-opcua/opcua-commander.git"
+    "url": "git+https://github.com/node-opcua/opcua-commander.git"
   },
   "publishConfig": {
     "provenance": true
