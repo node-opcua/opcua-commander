@@ -48,9 +48,16 @@ jobs:
           git config user.name "${{ github.actor }}"
           git config user.email "${{ github.actor}}@users.noreply.github.com"
 
-      - name: "Setup npm"
+      - name: "Verify NPM Authentication (Preflight)"
         run: |
-          npm set "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}"
+          echo "Pinging npm registry..."
+          npm ping
+          echo "Verifying authenticated user..."
+          npm whoami
+          echo "Verifying package ownership on registry..."
+          npm owner ls opcua-commander
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: "detect unwanted changes"
         run: |
@@ -65,3 +72,5 @@ jobs:
           npm publish --tag "$DIST_TAG"
         env:
           NPM_CONFIG_PROVENANCE: true
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
