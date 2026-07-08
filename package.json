@@ -3,7 +3,12 @@
   "version": "0.40.0",
   "type": "module",
   "description": "OPCUA CLI client",
-  "main": "bin/bundle.js",
+  "main": "bin/bundle.cjs",
+  "files": [
+    "bin/opcua-commander",
+    "bin/bundle.cjs",
+    "bin/usr"
+  ],
   "keywords": [
     "opcua",
     "iot",
