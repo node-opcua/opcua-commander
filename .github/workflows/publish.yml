@@ -48,29 +48,24 @@ jobs:
           git config user.name "${{ github.actor }}"
           git config user.email "${{ github.actor}}@users.noreply.github.com"
 
-      - name: "Verify NPM Authentication (Preflight)"
-        run: |
-          echo "Pinging npm registry..."
-          npm ping
-          echo "Verifying authenticated user..."
-          npm whoami || echo "::warning:: 'npm whoami' failed. This token may be a granular/publish-only token with restricted profile access."
-          echo "Verifying package ownership on registry..."
-          npm owner ls opcua-commander
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: "Verify NPM registry connectivity"
+        run: npm ping
 
-      - name: "detect unwanted changes"
-        run: |
-          git status
-      - name: "stash unwanted changes"
-        run: |
-          git stash
+      - name: "Stash build artifacts before publish"
+        run: git stash
 
       - name: Publish to NPM
         run: |
+          # Remove the pre-configured _authToken written by actions/setup-node so that
+          # the NODE_AUTH_TOKEN repo variable (if set to a placeholder) cannot interfere.
+          # Authentication relies on npm Trusted Publishing (OIDC via id-token: write).
+          # PREREQUISITE: npm Trusted Publishing must be configured for this repository
+          # before this workflow can succeed. Configure it at:
+          # https://www.npmjs.com/package/opcua-commander/access
+          # (Publishing Access → "Allow publishing from GitHub Actions using OIDC")
+          npm config delete //registry.npmjs.org/:_authToken
           DIST_TAG="${{ github.event.inputs.dist-tag || 'latest' }}"
           npm publish --tag "$DIST_TAG"
         env:
           NPM_CONFIG_PROVENANCE: true
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
