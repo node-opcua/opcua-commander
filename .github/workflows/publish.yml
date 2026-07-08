@@ -53,7 +53,7 @@ jobs:
           echo "Pinging npm registry..."
           npm ping
           echo "Verifying authenticated user..."
-          npm whoami
+          npm whoami || echo "::warning:: 'npm whoami' failed. This token may be a granular/publish-only token with restricted profile access."
           echo "Verifying package ownership on registry..."
           npm owner ls opcua-commander
         env:
