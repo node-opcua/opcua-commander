@@ -313,5 +313,37 @@ describe("OPC UA Commander Business Logic", () => {
     expect(rangeAttr).toBeDefined();
     expect(rangeAttr!.text).toBe("[ 0, 100 ]");
   });
+
+  it("should correctly parse Node IDs of various formats and check their existence", async () => {
+    // 1. Standard format
+    const parsed1 = await model.parseNodeId("ns=0;i=2255");
+    expect(parsed1.namespace).toBe(0);
+    expect(parsed1.value).toBe(2255);
+
+    const exists1 = await model.nodeExists(parsed1);
+    expect(exists1).toBe(true);
+
+    // 2. nsi= format (renamed to ns=)
+    const parsed2 = await model.parseNodeId("nsi=0;i=2258");
+    expect(parsed2.namespace).toBe(0);
+    expect(parsed2.value).toBe(2258);
+
+    const exists2 = await model.nodeExists(parsed2);
+    expect(exists2).toBe(true);
+
+    // 3. nsu= format (dynamically mapped using NamespaceArray)
+    // The standard namespace URI for namespace 0 is http://opcfoundation.org/UA/
+    const parsed3 = await model.parseNodeId("nsu=http://opcfoundation.org/UA/;i=2255");
+    expect(parsed3.namespace).toBe(0);
+    expect(parsed3.value).toBe(2255);
+
+    const exists3 = await model.nodeExists(parsed3);
+    expect(exists3).toBe(true);
+
+    // 4. Non-existent node
+    const parsed4 = await model.parseNodeId("ns=0;i=9999999");
+    const exists4 = await model.nodeExists(parsed4);
+    expect(exists4).toBe(false);
+  });
 });
 

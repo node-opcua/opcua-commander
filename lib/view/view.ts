@@ -334,7 +334,7 @@ export class View {
   private updateTreeHelp(searchActive: boolean = false): void {
     if (this.treeHelp) {
       if (searchActive) {
-        this.treeHelp.setContent(" [f] or [/]  {yellow-fg}Cycle:{/yellow-fg} [F3]/[S-F3]");
+        this.treeHelp.setContent(" [f] or [/]  {yellow-fg}Cycle:{/yellow-fg} [F3]/[S-F3]  {yellow-fg}Clear:{/yellow-fg} [Ctrl-U]  {yellow-fg}Node ID:{/yellow-fg} ns=/nsu=");
       } else {
         this.treeHelp.setContent(" [↑/↓] Nav  [→/+] Exp  [←/-] Coll  [f] Find  [m] Mon");
       }
@@ -395,11 +395,12 @@ export class View {
    {bold}f / /{/bold}     : Find / Filter Nodes
    {bold}m{/bold}         : Monitor Node
 
- {bold}{yellow-fg}Search Bar (when active){/yellow-fg}{/bold}
-   {bold}F3{/bold}        : Next Search Match
-   {bold}Shift-F3{/bold}  : Previous Search Match
-   {bold}Enter{/bold}     : Apply & Close Search
-   {bold}Escape{/bold}    : Cancel Search
+   {bold}{yellow-fg}Search Bar (when active){/yellow-fg}{/bold}
+     {bold}F3{/bold}        : Next Search Match
+     {bold}Shift-F3{/bold}  : Previous Search Match
+     {bold}Ctrl-U{/bold}    : Clear Search Input
+     {bold}Enter{/bold}     : Locate Node ID (ns=/nsu=) or Close Search
+     {bold}Escape{/bold}    : Cancel Search
 
  {bold}{yellow-fg}Monitored Items{/yellow-fg}{/bold}
    {bold}u{/bold}         : Unmonitor Selected Item
@@ -508,8 +509,15 @@ export class View {
     this.filterInputElement.on("keypress", (ch: any, key: any) => {
       process.nextTick(() => {
         const query = this.filterInputElement.getValue().trim();
+        const isNodeIdPattern = /^(ns|nsi|nsu|s|i)=/i.test(query);
         if (query) {
-          this.performSearch(query, this.tree.getSelectedIndex(), "down");
+          if (isNodeIdPattern) {
+            this.filterInputElement.style.fg = "yellow";
+            this.screen.render();
+          } else {
+            this.filterInputElement.style.fg = "white";
+            this.performSearch(query, this.tree.getSelectedIndex(), "down");
+          }
         } else {
           this.filterInputElement.style.fg = "white";
           this.screen.render();
@@ -521,12 +529,59 @@ export class View {
       this.tree.focus();
     });
 
-    this.filterInputElement.key(["enter"], () => {
+    this.filterInputElement.key(["C-u"], () => {
+      this.filterInputElement.setValue("");
+      this.filterInputElement.style.fg = "white";
+      this.screen.render();
+    });
+
+    this.filterInputElement.key(["enter"], async () => {
+      const query = this.filterInputElement.getValue().trim();
+      const isNodeIdPattern = /^(ns|nsi|nsu|s|i)=/i.test(query);
+
+      if (isNodeIdPattern) {
+        this.filterInputElement.style.fg = "yellow";
+        this.screen.render();
+
+        try {
+          const resolvedNodeId = await this.model.parseNodeId(query);
+          
+          const exists = await this.model.nodeExists(resolvedNodeId);
+          if (!exists) {
+            throw new Error(`Node ID '${resolvedNodeId.toString()}' does not exist on the server.`);
+          }
+
+          const path = await this.model.findPathToRoot(resolvedNodeId);
+          const rootFolderId = resolveNodeId("RootFolder");
+          const reachedRoot = path.length > 0 && sameNodeId(path[0], rootFolderId);
+
+          if (!reachedRoot) {
+            this.filterInputElement.style.fg = "orange";
+            this.screen.render();
+            console.log(
+              chalk.yellow(
+                `[GoTo] Warning: Could not find path to root for node '${resolvedNodeId.toString()}'. The server may not support inverse hierarchical browse.`
+              )
+            );
+            return; // keep focus on search box in orange state so they see the warning
+          }
+
+          await this.tree.expandPath(path);
+          this.filterInputElement.style.fg = "white";
+        } catch (err: any) {
+          this.filterInputElement.style.fg = "red";
+          this.screen.render();
+          console.log(chalk.red(`[GoTo] Error: ${err.message || err}`));
+          return; // keep focus on search box in red state so they see the error
+        }
+      }
+
       this.tree.focus();
     });
 
     this.filterInputElement.on("blur", () => {
       this.filterForm.hide();
+      this.filterInputElement.style.fg = "white";
       this.updateTreeHelp(false);
       this.screen.render();
     });
@@ -537,7 +592,7 @@ export class View {
         return;
       }
       const query = this.filterInputElement.getValue().trim();
-      if (query) {
+      if (query && !/^(ns|nsi|nsu|s|i)=/i.test(query)) {
         this.performSearch(query, this.tree.getSelectedIndex() + 1, "down");
       }
     });
@@ -548,7 +603,7 @@ export class View {
         return;
       }
       const query = this.filterInputElement.getValue().trim();
-      if (query) {
+      if (query && !/^(ns|nsi|nsu|s|i)=/i.test(query)) {
         this.performSearch(query, this.tree.getSelectedIndex() - 1, "up");
       }
     });

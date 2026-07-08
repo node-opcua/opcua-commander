@@ -265,6 +265,9 @@ export class Tree extends (blessed as any).list {
                 if (index >= 0) {
                     this.select(index);
                     this.scrollTo(index);
+                    if (typeof this.emit === "function") {
+                        this.emit("select", this.items[index]);
+                    }
                     if (this.screen) {
                         this.screen.render();
                     }

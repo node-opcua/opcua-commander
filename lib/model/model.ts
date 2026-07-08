@@ -711,6 +711,67 @@ export class Model extends EventEmitter {
     return path;
   }
 
+  public async nodeExists(nodeId: NodeId): Promise<boolean> {
+    if (!this.session) return false;
+    try {
+      const dv = await this.session.read({
+        nodeId,
+        attributeId: AttributeIds.NodeClass,
+      });
+      return dv.statusCode === StatusCodes.Good;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  public async parseNodeId(nodeIdStr: string): Promise<NodeId> {
+    if (!this.session) {
+      throw new Error("No active session");
+    }
+
+    nodeIdStr = nodeIdStr.trim();
+
+    // 1. Handle nsi= by rewriting to ns=
+    if (nodeIdStr.startsWith("nsi=")) {
+      nodeIdStr = "ns=" + nodeIdStr.substring(4);
+    }
+
+    // 2. Handle nsu= format
+    if (nodeIdStr.startsWith("nsu=")) {
+      const semiColonIndex = nodeIdStr.indexOf(";");
+      if (semiColonIndex === -1) {
+        throw new Error("Invalid NodeId format. Missing ';' after namespace URI.");
+      }
+      const uri = nodeIdStr.substring(4, semiColonIndex);
+      const identifierPart = nodeIdStr.substring(semiColonIndex + 1);
+
+      // Read NamespaceArray
+      const dataValue = await this.session.read({
+        nodeId: "ns=0;i=2255",
+        attributeId: AttributeIds.Value,
+      });
+
+      if (!dataValue || !dataValue.value || !Array.isArray(dataValue.value.value)) {
+        throw new Error("Failed to read server NamespaceArray.");
+      }
+
+      const namespaceArray: string[] = dataValue.value.value;
+      const index = namespaceArray.indexOf(uri);
+      if (index === -1) {
+        throw new Error(`Namespace URI '${uri}' not found on the server.`);
+      }
+
+      nodeIdStr = `ns=${index};${identifierPart}`;
+    }
+
+    try {
+      return resolveNodeId(nodeIdStr);
+    } catch (err: any) {
+      throw new Error(`Invalid NodeId format: ${err.message}`);
+    }
+  }
+
+
   public async getBrowseNameMaybe(nodeId: NodeId): Promise<string> {
     const key = nodeId.toString();
     if (this.typeNameCache.has(key)) {
