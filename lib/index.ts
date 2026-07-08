@@ -38,17 +38,19 @@ async function main() {
   program.parse(process.argv);
   const argv = program.opts();
 
-  const endpoint = program.args[0] || "opc.tcp://localhost:26543";
+  const endpoint = argv.endpoint || program.args[0] || "opc.tcp://localhost:26543";
 
   const userIdentity = makeUserIdentity(argv);
 
   const model = new Model();
   model.showNamespace = !!argv.showNamespace;
 
+  const securityPolicyStr = argv.securityPolicy || argv.P || "None";
+
   const options = {
     endpoint,
     securityMode: MessageSecurityMode[argv.securityMode as keyof typeof MessageSecurityMode] || MessageSecurityMode.None,
-    securityPolicy: (SecurityPolicy as any)[argv.securityPolicy] || SecurityPolicy.None,
+    securityPolicy: (SecurityPolicy as any)[securityPolicyStr] || SecurityPolicy.None,
     certificateFile: argv.certificateFile,
     privateKeyFile: argv.privateKeyFile,
     userIdentity,
