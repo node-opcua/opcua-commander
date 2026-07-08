@@ -1,6 +1,6 @@
 {
   "name": "opcua-commander",
-  "version": "0.40.0",
+  "version": "1.0.0",
   "type": "module",
   "description": "OPCUA CLI client",
   "main": "bin/bundle.cjs",
