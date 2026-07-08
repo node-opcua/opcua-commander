@@ -16,9 +16,20 @@ No bulky heavy GUI dependencies required. It is fast, lightweight, and perfect f
 
 ## 🌟 Key Features
 
-### 🔍 Powerful GoTo Node ID Back-Search & Locate
+### 🌲 Interactive Address Space Explorer Tree
+* **Visual Node Tree**: Fluid, keyboard-driven navigation through the entire OPC UA hierarchical Address Space (Objects, Variables, Types, and Views).
+* **Dynamic Node Expand/Collapse**: Smoothly expand and contract branches dynamically to discover child nodes and complex structures on-the-fly.
+
+### 📋 Full Attribute & Property Inspector
+* **Live Details**: Displays all standard attributes of the currently selected node (including Node ID, BrowseName, DisplayName, Description, DataType, Value, NodeClass, AccessLevel, UserAccessLevel, Historizing, and more).
+* **Attribute Writing**: Edit and write new values to Variable attributes directly from the interactive UI.
+
+### 🔗 Dynamic Reference Explorer
+* **Bi-directional Browsing**: Explore all references linked to the selected node. Toggle views to show only Forward references, Backward references, or All references.
+
+### 🎯 Powerful GoTo Node ID Back-Search & Locate (New!)
 No more manually clicking and expanding deeply nested folders! Simply press `/` or `f` to focus the search bar:
-* **Standard Resolution**: Type a standard Node ID like `ns=2;s=MyVariable` and press **Enter**. The client automatically does a server-wide hierarchical parent lookup, expands the tree levels, scrolls, and selects the target node.
+* **Standard Resolution**: Type a standard Node ID like `ns=2;s=MyVariable` and press **Enter**. The client automatically performs a server-wide hierarchical parent lookup, expands the tree levels, scrolls, and selects the target node.
 * **Alternative Formats**: Supports `nsi=2;s=MyVariable` (shorthand for namespace index).
 * **Dynamic Namespace URI Resolution (`nsu=`)**: Search using Namespace URIs like `nsu=http://samples.org/UA/MyNamespace;s=MyVariable`. The client automatically queries the server's `NamespaceArray` node at runtime, maps the URI to its integer index, and resolves it!
 * **UX Color Indicators**:
@@ -29,7 +40,7 @@ No more manually clicking and expanding deeply nested folders! Simply press `/` 
 * **Instant Clear**: Press `Ctrl-U` to instantly clear the search box!
 
 ### 🧭 Smart Node History & Jump Navigation
-* Tracks your browsing history.
+* Tracks your browsing history as you explore.
 * Easily jump backwards (`Left Arrow` on collapsed root or `Backspace`) and jump forwards through your visited paths for lightning-fast comparisons.
 
 ### 📐 Engineering Units & EURange Enrichment
@@ -40,8 +51,18 @@ No more manually clicking and expanding deeply nested folders! Simply press `/` 
 ### 🗂️ HasSubtype Mode Filtering
 * When exploring type hierarchies inside the `Types` folder, toggle **Subtype Mode** to restrict navigation to subtype structures (`HasSubtype` references) instead of mixing in standard instances, keeping your types tree clean and organized.
 
-### 📈 Live Variable Monitoring
-* Hit `m` on any variable node to start monitoring it in real-time. Live transactions and updates stream directly into your Monitored Items panel.
+### 📈 Real-time Variable Monitoring & Subscriptions
+* Hit `m` on any Variable node to instantly subscribe and start monitoring it in real-time. Live transactions and updates stream directly into your Monitored Items panel.
+
+### ⚡ Remote Server Method Calls
+* Execute server-side methods directly from the curses-based command UI. Allows inputting parameters and seeing returned values.
+
+### 🔐 Secure Connections & Security Profiles
+* Full support for anonymous connections as well as Username/Password authentication.
+* Configurable with various Message Security Modes (`None`, `Sign`, `SignAndEncrypt`) and Security Policies (`Basic128Rsa15`, `Basic256`, `Basic256Sha256`, `Aes128_Sha256_RsaOaep`, etc.).
+
+### 🖥️ Built-in Logger Console
+* Live transaction, message size, subscription events, renewal logs, and error diagnostic reporting inside a separate, clearable log panel.
 
 ---
 
