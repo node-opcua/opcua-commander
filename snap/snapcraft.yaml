@@ -20,17 +20,17 @@ parts:
     # See 'snapcraft plugins'
     plugin: npm
     npm-include-node: true
-    npm-node-version: "22.11.0"
+    npm-node-version: "24"
     # plugin: nodejs
     # nodejs-package-manager: npm
-    # nodejs-version: "22.11.0"
+    # nodejs-version: "24"
     source: . 
     stage-packages:
       - openssl
 
 apps:
   opcua-commander:
-    command: bin/opcua-commander.js
+    command: bin/opcua-commander
     plugs:
       - network
     environment:
