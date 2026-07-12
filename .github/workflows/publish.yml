@@ -83,6 +83,11 @@ jobs:
           npm run build
           npm run bundle
 
+      - name: Sync Snapcraft Version with package.json
+        run: |
+          VERSION=$(node -e "console.log(require('./package.json').version)")
+          sed -i "s/^version: .*/version: \"$VERSION\"/" snap/snapcraft.yaml
+
       - name: Build Snap Package
         uses: snapcore/action-build@v1
         id: build
