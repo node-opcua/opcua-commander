@@ -1,6 +1,12 @@
 name: opcua-commander 
 base: core22
 version: "0.39.0"
+title: OPC UA Commander
+contact: https://github.com/node-opcua/opcua-commander/issues
+license: MIT
+issues: https://github.com/node-opcua/opcua-commander/issues
+source-code: https://github.com/node-opcua/opcua-commander
+website: https://sterfive.com
 summary: Curse based OPCUA Client for the command line
 description: |
   opcua-commander is a OPCUA Client application that runs in the terminal.

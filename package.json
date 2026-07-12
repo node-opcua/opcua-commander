@@ -5,7 +5,7 @@
   "description": "OPCUA CLI client",
   "main": "bin/bundle.cjs",
   "files": [
-    "bin/opcua-commander",
+    "bin/opcua-commander.js",
     "bin/bundle.cjs",
     "bin/usr"
   ],
