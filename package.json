@@ -40,7 +40,7 @@
     "provenance": true
   },
   "bin": {
-    "opcua-commander": "bin/opcua-commander"
+    "opcua-commander": "bin/opcua-commander.js"
   },
   "engines": {
     "node": ">= 20.0"
