@@ -1,6 +1,6 @@
 {
   "name": "opcua-commander",
-  "version": "1.0.0",
+  "version": "1.2.1",
   "type": "module",
   "description": "OPCUA CLI client",
   "main": "bin/bundle.cjs",
@@ -21,7 +21,7 @@
     "build": "tsc -b && npm run bundle",
     "bundle": "node scratch/patch-blessed.cjs && tsup && node scratch/post-bundle.cjs",
     "test-server": "node test-bed/server.cjs",
-    "release": "npm run build && npm run bundle && npx release-it --no-npm",
+    "release": "npm run build && npm run bundle && npx release-it --npm.publish=false",
     "test": "vitest run",
     "ncu": "npx npm-check-updates -u -x chalk,yargs,env-paths,update-notifier,camel-case,cli-truncate",
     "start": "node bin/opcua-commander",
