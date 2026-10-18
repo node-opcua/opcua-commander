@@ -71,7 +71,7 @@
     "es-abstract": "^1.24.2",
     "node-opcua": "^2.174.0",
     "source-map-support": "^0.5.21",
-    "tsup": "^8.5.1",
+    "tsup": "^9.0.0",
     "typescript": "^6.0.3",
     "vitest": "^4.1.10"
   }
